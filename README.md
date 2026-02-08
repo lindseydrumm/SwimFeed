@@ -15,7 +15,6 @@ This repository contains the full Swim Live project:
 | Directory     | Description                    |
 |--------------|--------------------------------|
 | `Backend/`   | Python backend (FastAPI, uv)   |
-| `ReactProject/` | React Native mobile app     |
 | `web/`       | React web app (Vite)           |
 
 ---
@@ -46,7 +45,6 @@ uv sync
 To run a Python script:
 
 ```bash
-cd Backend
 uv run main.py
 ```
 
