@@ -5,7 +5,6 @@ Swim Live is an application designed to make competitive swimming easier to foll
 This repository contains the full Swim Live project:
 
 - **Backend:** Data ingestion, scrapers, database models, and APIs
-- **ReactProject:** React Native mobile app (iOS & Android)
 - **web:** React web app (Vite)
 
 ---
@@ -16,6 +15,7 @@ This repository contains the full Swim Live project:
 |--------------|--------------------------------|
 | `Backend/`   | Python backend (FastAPI, uv)   |
 | `web/`       | React web app (Vite)           |
+| `docker-compose.yml` | Local development services (DB + backend) |
 
 ---
 
@@ -25,7 +25,7 @@ This repository contains the full Swim Live project:
 
 The backend is built with a focus on simplicity, reproducibility, and extensibility.
 
-**Tech stack:** Python, `uv`, PostgreSQL, FastAPI, Python-based scrapers.
+**Tech stack:** Python, uv, PostgreSQL, FastAPI, Python-based scrapers, Docker
 
 - **Scrapers:** Collect news, events, and results from external sources
 - **Database layer:** PostgreSQL schemas and models
@@ -34,43 +34,42 @@ The backend is built with a focus on simplicity, reproducibility, and extensibil
 
 ### Backend setup
 
-**Prerequisites:** Python 3.12, [uv](https://github.com/astral-sh/uv), PostgreSQL (local or containerized).
+**Prerequisites:** Docker
+
+After cloning the repository:
 
 ```bash
-cd Backend
-uv venv
-uv sync
+docker compose up
+```
+This will:
+    - Start PostgreSQL
+    - Start the FastAPI backend
+    - Mount the Backend/ directory into the container
+    - Enable hot reload for backend code changes
+
+The API is available at:
+```
+hyyp://localhost:8000
 ```
 
-To run a Python script:
+To run a backend script:
 
 ```bash
-uv run main.py
+docker exec swimlive_backend uv run <script>.py
 ```
-
-### Database (PostgreSQL)
-
-You need:
-
-- A running PostgreSQL instance
-- A database created for the project
 
 ### API
 
-> TODO: add full app startup instructions
-
-Once implemented, the API will be runnable locally via:
-
+The API is automatically started when Docker Compose runs. If the API fails to start, check logs with:
 ```bash
-cd Backend
-uv run uvicorn app.main:app --reload
+docker compose logs backend
 ```
 
 ---
 
 ## Web app
 
-React (Vite) web client.
+The React (Vite) web client is not Dockerized and runs locally.
 
 ```bash
 cd web

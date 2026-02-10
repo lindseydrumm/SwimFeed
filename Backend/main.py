@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 app = FastAPI()
 
 # engine
-DATABASE_URL = "postgresql+psycopg2://ydvo@/swimlive"
+DATABASE_URL = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
 engine = create_engine(DATABASE_URL)
 
 

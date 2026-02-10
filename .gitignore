@@ -1,0 +1,4 @@
+# top level gitignore
+.env
+
+Backend/__pycache__
