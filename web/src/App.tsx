@@ -1,11 +1,12 @@
-import React from 'react';
 import { Header } from '../components/Header';
 import { WelcomeBanner } from '../components/WelcomeBanner';
 import { YourAthletes } from '../components/YourAthletes';
 import { UpcomingRaces } from '../components/UpcomingRaces';
 import { NewsFeed } from '../components/NewsFeed';
 import { RecentResults } from '../components/RecentResults';
-export default function App() {
+import './App.css'
+
+function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-300 pb-20 font-sans">
       <Header />
@@ -41,6 +42,7 @@ export default function App() {
         <p>© 2024 SwimStats. Your personal swimming companion.</p>
       </footer>
     </div>
-    
-    );
+  );
 }
+
+export default App
