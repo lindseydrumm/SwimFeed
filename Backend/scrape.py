@@ -5,8 +5,10 @@ import feedparser
 import requests
 from datetime import datetime
 
+# import environmental vars
+from config import settings
+
 FEED_URL = "https://swimswam.com/feed/"
-API_URL = "http://127.0.0.1:8000/ingest/article"
 
 feed = feedparser.parse(FEED_URL)
 
@@ -23,6 +25,6 @@ for entry in feed.entries:
         "source": "swimswam",
     }
 
-    response = requests.post(API_URL, json=article)
+    response = requests.post(settings.api_url, json=article)
 
     print(article["title"], response.status_code)

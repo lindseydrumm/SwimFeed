@@ -6,12 +6,14 @@ from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import create_engine, text
 
+# import environmental variables
+from config import settings
+
 # main app
-app = FastAPI()
+app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 # engine
-DATABASE_URL = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
-engine = create_engine(DATABASE_URL)
+engine = create_engine(settings.database_url)
 
 
 # article structure
