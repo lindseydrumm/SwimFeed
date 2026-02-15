@@ -42,7 +42,7 @@ for s in SOURCES:
                 else None
             ),
             "summary": entry.summary if hasattr(entry, "summary") else None,
-            "source": s["source"],   # 🔥 动态写 source
+            "source": s["source"],   
         }
 
         response = requests.post(API_URL, json=article)
