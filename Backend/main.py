@@ -5,9 +5,19 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import create_engine, text
+from fastapi.middleware.cors import CORSMiddleware
 
 # main app
 app = FastAPI()
+
+# Allow cross-origin requests from the frontend development server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # engine
 DATABASE_URL = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
