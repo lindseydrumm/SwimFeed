@@ -7,40 +7,44 @@
 
 
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper } from 'lucide-react';
+
+const navItems = [
+  { name: 'My Feed', icon: Newspaper, path: '/', end: true },
+  { name: 'Athletes', icon: Activity, path: '/athletes' },
+  { name: 'Events', icon: Medal, path: '/events', end: true },
+];
+
 export function Header() {
-  const navItems = [{
-    name: 'My Feed',
-    icon: Newspaper,
-    active: true
-  }, {
-    name: 'Athletes',
-    icon: Activity,
-    active: false
-  }, {
-    name: 'Events',
-    icon: Medal,
-    active: false
-  }];
-  return <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <NavLink to="/" className="flex items-center gap-2">
           <div className="p-2 bg-cyan-500/10 rounded-lg">
             <Waves className="h-6 w-6 text-cyan-400" />
           </div>
           <span className="text-xl font-bold text-white tracking-tight">
             Swim<span className="text-cyan-400">Stats</span>
           </span>
-        </div>
+        </NavLink>
 
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map(item => <button key={item.name} className={`
-                flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                ${item.active ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}
-              `}>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.path}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  isActive ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`
+              }
+            >
               <item.icon className="h-4 w-4" />
               {item.name}
-            </button>)}
+            </NavLink>
+          ))}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -49,5 +53,6 @@ export function Header() {
           </div>
         </div>
       </div>
-    </header>;
+    </header>
+  );
 }

@@ -13,7 +13,7 @@ import { Clock, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // Uses the API wrapper instead of calling fetch directly in the component.
-import { getArticles } from '../api/articles';
+import { getArticles } from '../src/api/articles';
 
 type Article = {
   id: number;

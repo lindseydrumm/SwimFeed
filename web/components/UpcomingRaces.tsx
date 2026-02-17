@@ -6,9 +6,10 @@
 //
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
+import { Link } from 'react-router-dom';
+import { Card, CardContent } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Calendar, Clock, MapPin, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, ChevronRight, Medal } from 'lucide-react';
 import { motion } from 'framer-motion';
 const heats = [{
   id: 1,
@@ -62,9 +63,21 @@ export function UpcomingRaces() {
                   <span>July 26 - Aug 3</span>
                 </div>
               </div>
-              <button className="text-sm font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors">
-                View full schedule <ChevronRight className="h-4 w-4" />
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  to="/events"
+                  className="text-sm font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                >
+                  View full schedule <ChevronRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/events"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
+                >
+                  <Medal className="h-4 w-4" />
+                  Event details
+                </Link>
+              </div>
             </div>
 
             <div className="flex gap-4 z-10 w-full md:w-auto">
