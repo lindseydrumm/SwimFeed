@@ -7,6 +7,7 @@ import { UpcomingRaces } from '../components/UpcomingRaces';
 import { NewsFeed } from '../components/NewsFeed';
 import { RecentResults } from '../components/RecentResults';
 import { EventPage } from '../components/EventPage';
+import { SwimmerPage } from '../components/SwimmerPage';
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
             }
           />
           <Route path="/events" element={<EventPage />} />
+          <Route path="/athletes" element={<SwimmerPage />} />
         </Routes>
       </main>
 
