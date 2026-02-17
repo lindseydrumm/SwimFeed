@@ -8,12 +8,13 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Waves, Activity, Medal, Newspaper } from 'lucide-react';
+import { Waves, Activity, Medal, Newspaper, Compass } from 'lucide-react';
 
 const navItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
   { name: 'Athletes', icon: Activity, path: '/athletes' },
   { name: 'Events', icon: Medal, path: '/events', end: true },
+  { name: 'Explore', icon: Compass, path: '/explore', end: true },
 ];
 
 export function Header() {
