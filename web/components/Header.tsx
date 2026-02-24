@@ -8,13 +8,19 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Waves, Activity, Medal, Newspaper, Compass } from 'lucide-react';
+import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 const navItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
   { name: 'Athletes', icon: Activity, path: '/athletes' },
   { name: 'Events', icon: Medal, path: '/events', end: true },
   { name: 'Explore', icon: Compass, path: '/explore', end: true },
+  { name: 'Storylines', icon: BookOpen, path: '/storylines', end: true },
+  { name: 'Learn', icon: BookMarked, path: '/learn', end: true },
+  { name: 'Saved', icon: Bookmark, path: '/saved', end: true },
+  { name: 'Recap', icon: BarChart3, path: '/recap', end: true },
+  { name: 'Settings', icon: Settings, path: '/settings', end: true },
 ];
 
 export function Header() {
@@ -48,7 +54,8 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <ThemeSwitcher />
           <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
             JD
           </div>

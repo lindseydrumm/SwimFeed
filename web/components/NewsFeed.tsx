@@ -14,6 +14,8 @@ import { motion } from 'framer-motion';
 
 // Uses the API wrapper instead of calling fetch directly in the component.
 import { getArticles } from '../src/api/articles';
+import { ArticleActions } from './ArticleActions';
+import { useUser } from '../src/store/UserStore';
 
 type Article = {
   id: number;
@@ -69,11 +71,10 @@ const fake_news = [
 ];
 
 export function NewsFeed() {
-  // Added: Holds API articles.
   const [articles, setArticles] = useState<Article[]>([]);
-  // Added: Simple request states.
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { markSeen, isSeen } = useUser();
 
   // Kept: HTML summary to plain text.
   const getPlainText = (html?: string | null) => {
@@ -139,7 +140,8 @@ export function NewsFeed() {
       <div className="space-y-4">
         {items.map((item, index) => {
           const imageSrc = getImageSrc(item.summary);
-
+          const urlOrId = item.url !== '#' ? item.url : String(item.id ?? index);
+          const seen = isSeen(urlOrId);
           return (
             <motion.div
               key={`${item.source}-${item.id}`}
@@ -153,11 +155,11 @@ export function NewsFeed() {
                 rel={item.url === '#' ? undefined : 'noopener noreferrer'}
                 className="block"
                 onClick={(e) => {
-                  // Added: Prevents opening a dummy link for fake data.
                   if (item.url === '#') e.preventDefault();
+                  else markSeen(urlOrId);
                 }}
               >
-                <Card className="hover:bg-slate-800/80 transition-colors cursor-pointer group overflow-hidden border-slate-800">
+                <Card className={`hover:bg-slate-800/80 transition-colors cursor-pointer group overflow-hidden border-slate-800 ${seen ? 'opacity-85' : ''}`}>
                   <div className="flex flex-col sm:flex-row">
                     <div className="h-32 sm:h-auto sm:w-48 flex-shrink-0 relative overflow-hidden">
                       {imageSrc ? (
@@ -186,7 +188,10 @@ export function NewsFeed() {
                           <h3 className="font-bold text-white group-hover:text-cyan-400 transition-colors line-clamp-2">
                             {item.title}
                           </h3>
-                          <ExternalLink className="h-4 w-4 text-slate-600 group-hover:text-cyan-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100" />
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.preventDefault()}>
+                            <ArticleActions urlOrId={urlOrId} />
+                            <ExternalLink className="h-4 w-4 text-slate-600 group-hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100" />
+                          </div>
                         </div>
 
                         <p className="text-sm text-slate-400 line-clamp-2 mb-3">
@@ -198,6 +203,7 @@ export function NewsFeed() {
                         <div className="flex items-center gap-1 text-xs text-slate-500">
                           <Clock className="h-3 w-3" />
                           <span>{item.source}</span>
+                          {seen && <span className="text-slate-500">· Read</span>}
                         </div>
                         <span className="text-xs text-slate-500">
                           {formatDate(item.published_at)}
