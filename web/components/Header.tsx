@@ -5,8 +5,7 @@
 //  Created by Lindsey Drumm on 2/10/26.
 //
 
-
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -23,19 +22,71 @@ const navItems = [
   { name: 'Settings', icon: Settings, path: '/settings', end: true },
 ];
 
+
 export function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+    
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
+    
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <NavLink to="/" className="flex items-center gap-2">
-          <div className="p-2 bg-cyan-500/10 rounded-lg">
-            <Waves className="h-6 w-6 text-cyan-400" />
-          </div>
-          <span className="text-xl font-bold text-white tracking-tight">
-            Swim<span className="text-cyan-400">Stats</span>
-          </span>
-        </NavLink>
+          
+        {/* Logo with dropdown */}
+          <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex items-center gap-2"
+          >
+            <div className="p-2 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20">
+              <Waves className="h-6 w-6 text-cyan-400" />
+            </div>
+            <span className="text-xl font-bold text-white tracking-tight">
+              Swim<span className="text-cyan-400">Stats</span>
+            </span>
+          </button>
 
+          {/* Dropdown menu */}
+          {menuOpen && (
+          <div className="absolute right-0 top-full mt-2 py-2 min-w-[140px] rounded-xl bg-slate-800 border border-slate-700 shadow-xl z-50">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                end={item.end}
+                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                    isActive 
+                      ? 'text-cyan-400 bg-cyan-500/10' 
+                      : 'text-slate-300 hover:bg-slate-700'
+                    }`
+                  }
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+          
         <nav className="hidden md:flex items-center gap-1">
           {navItems.map((item) => (
             <NavLink
