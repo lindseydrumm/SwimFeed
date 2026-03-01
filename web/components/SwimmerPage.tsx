@@ -3,14 +3,17 @@
 // Styled to match project-swim-live (dark theme, Card/Badge from ui).
 //
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Trophy, TrendingUp, Clock, Heart } from 'lucide-react';
+import { Trophy, TrendingUp, Clock } from 'lucide-react';
+import { FollowButton } from './FollowButton';
+
+const ATHLETE_ID = 'phelps';
+const ATHLETE_NAME = 'Michael Phelps';
 
 export function SwimmerPage() {
-  const [isFollowing, setIsFollowing] = useState(false);
 
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-12">
@@ -65,20 +68,13 @@ export function SwimmerPage() {
           transition={{ delay: 0.35 }}
           className="mb-8"
         >
-          <button
-            type="button"
-            onClick={() => setIsFollowing(!isFollowing)}
-            className={`
-              inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-              ${isFollowing
-                ? 'bg-cyan-500 text-white'
-                : 'border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50'
-              }
-            `}
-          >
-            <Heart className={`w-4 h-4 ${isFollowing ? 'fill-white' : ''}`} />
-            {isFollowing ? 'Following' : 'Follow'}
-          </button>
+          <FollowButton
+            entityType="athlete"
+            entityId={ATHLETE_ID}
+            name={ATHLETE_NAME}
+            label="Follow"
+            followingLabel="Following"
+          />
         </motion.div>
 
         <div className="h-px max-w-lg mx-auto bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />

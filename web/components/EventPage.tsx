@@ -15,8 +15,8 @@ import {
   Clock,
   Tv,
   Globe,
-  Bell,
 } from 'lucide-react';
+import { FollowButton } from './FollowButton';
 
 const scheduleData = [
   { day: 'Day 1', date: 'July 14', events: ['100m Freestyle Prelims', '200m Butterfly Prelims', '400m IM Finals'] },
@@ -30,9 +30,11 @@ const broadcastData = [
   { session: 'Full Coverage', time: 'All Sessions', localTime: 'Live & Replay', platform: 'World Aquatics+', region: 'Global' },
 ];
 
+const EVENT_ID = 'worlds-2025';
+const EVENT_NAME = 'World Aquatics Championships';
+
 export function EventPage() {
   const [expandedDay, setExpandedDay] = useState<number | null>(0);
-  const [isFollowing, setIsFollowing] = useState(false);
 
   return (
     <div className="max-w-3xl mx-auto pb-12 space-y-12">
@@ -79,20 +81,13 @@ export function EventPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.42 }}
         >
-          <button
-            type="button"
-            onClick={() => setIsFollowing(!isFollowing)}
-            className={`
-              inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-              ${isFollowing
-                ? 'bg-cyan-500 text-white'
-                : 'border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50'
-              }
-            `}
-          >
-            <Bell className={`w-4 h-4 ${isFollowing ? 'fill-white' : ''}`} />
-            {isFollowing ? 'Following Event' : 'Follow Event'}
-          </button>
+          <FollowButton
+            entityType="event"
+            entityId={EVENT_ID}
+            name={EVENT_NAME}
+            label="Follow Event"
+            followingLabel="Following Event"
+          />
         </motion.div>
       </div>
 

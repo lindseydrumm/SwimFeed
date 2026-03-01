@@ -33,3 +33,70 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-slate-600;
 }
+
+/* ---- Theme / vibe overrides (data-theme set on <html>) ---- */
+[data-theme="warm"] body {
+  background-color: #1c1917;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(28, 25, 23, 1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.12) 0px, transparent 50%);
+  color: #d6d3d1;
+}
+[data-theme="warm"] [class*="bg-slate-900"] { background-color: #1c1917 !important; }
+[data-theme="warm"] .bg-slate-900\/80 { background-color: rgba(28, 25, 23, 0.8) !important; }
+[data-theme="warm"] [class*="bg-slate-800"] { background-color: #292524 !important; background-color: rgba(41, 37, 36, var(--tw-bg-opacity, 1)) !important; }
+[data-theme="warm"] [class*="bg-slate-700"] { background-color: #44403c !important; }
+[data-theme="warm"] [class*="border-slate-800"],
+[data-theme="warm"] [class*="border-slate-700"] { border-color: rgba(68, 64, 60, 0.5) !important; }
+[data-theme="warm"] .text-cyan-400,
+[data-theme="warm"] .text-cyan-300 { color: #fbbf24 !important; }
+[data-theme="warm"] .bg-cyan-500\/10,
+[data-theme="warm"] .bg-cyan-500\/20 { background-color: rgba(251, 191, 36, 0.15) !important; }
+[data-theme="warm"] .border-cyan-500\/20,
+[data-theme="warm"] .border-cyan-500\/30,
+[data-theme="warm"] .border-cyan-500\/40 { border-color: rgba(251, 191, 36, 0.3) !important; }
+[data-theme="warm"] .hover\:border-cyan-500\/50:hover,
+[data-theme="warm"] .focus\:border-cyan-500\/50:focus { border-color: rgba(251, 191, 36, 0.5) !important; }
+[data-theme="warm"] .ring-cyan-500\/20 { --tw-ring-color: rgba(251, 191, 36, 0.2); }
+[data-theme="warm"] .bg-cyan-500 { background-color: #f59e0b !important; }
+[data-theme="warm"] .from-cyan-600,
+[data-theme="warm"] .to-blue-600 { --tw-gradient-from: #d97706; --tw-gradient-to: #b45309; }
+[data-theme="warm"] .text-amber-400 { color: #fbbf24 !important; }
+[data-theme="warm"] .bg-amber-500\/20 { background-color: rgba(251, 191, 36, 0.2) !important; }
+[data-theme="warm"] .border-amber-500\/30 { border-color: rgba(251, 191, 36, 0.3) !important; }
+[data-theme="warm"] ::-webkit-scrollbar-track { background: #1c1917; }
+[data-theme="warm"] ::-webkit-scrollbar-thumb { background: #44403c; }
+[data-theme="warm"] ::-webkit-scrollbar-thumb:hover { background: #57534e; }
+
+[data-theme="ocean"] body {
+  background-color: #0c1929;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(15, 23, 42, 1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%);
+  color: #bae6fd;
+}
+[data-theme="ocean"] [class*="bg-slate-900"] { background-color: #0c1929 !important; }
+[data-theme="ocean"] .bg-slate-900\/80 { background-color: rgba(12, 25, 41, 0.8) !important; }
+[data-theme="ocean"] [class*="bg-slate-800"] { background-color: #0f172a !important; background-color: rgba(15, 23, 42, var(--tw-bg-opacity, 1)) !important; }
+[data-theme="ocean"] [class*="bg-slate-700"] { background-color: #1e3a5f !important; }
+[data-theme="ocean"] [class*="border-slate-800"],
+[data-theme="ocean"] [class*="border-slate-700"] { border-color: rgba(30, 58, 95, 0.5) !important; }
+[data-theme="ocean"] .text-cyan-400,
+[data-theme="ocean"] .text-cyan-300 { color: #38bdf8 !important; }
+[data-theme="ocean"] .bg-cyan-500\/10,
+[data-theme="ocean"] .bg-cyan-500\/20 { background-color: rgba(56, 189, 248, 0.15) !important; }
+[data-theme="ocean"] .border-cyan-500\/20,
+[data-theme="ocean"] .border-cyan-500\/30,
+[data-theme="ocean"] .border-cyan-500\/40 { border-color: rgba(56, 189, 248, 0.35) !important; }
+[data-theme="ocean"] .hover\:border-cyan-500\/50:hover,
+[data-theme="ocean"] .focus\:border-cyan-500\/50:focus { border-color: rgba(56, 189, 248, 0.5) !important; }
+[data-theme="ocean"] .ring-cyan-500\/20 { --tw-ring-color: rgba(56, 189, 248, 0.2); }
+[data-theme="ocean"] .bg-cyan-500 { background-color: #0ea5e9 !important; }
+[data-theme="ocean"] .from-cyan-500,
+[data-theme="ocean"] .to-blue-600 { --tw-gradient-from: #06b6d4; --tw-gradient-to: #0284c7; }
+[data-theme="ocean"] .text-amber-400 { color: #38bdf8 !important; }
+[data-theme="ocean"] .bg-amber-500\/20 { background-color: rgba(56, 189, 248, 0.2) !important; }
+[data-theme="ocean"] .border-amber-500\/30 { border-color: rgba(56, 189, 248, 0.3) !important; }
+[data-theme="ocean"] ::-webkit-scrollbar-track { background: #0c1929; }
+[data-theme="ocean"] ::-webkit-scrollbar-thumb { background: #1e3a5f; }
+[data-theme="ocean"] ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
