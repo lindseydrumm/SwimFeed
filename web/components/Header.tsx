@@ -10,7 +10,14 @@ import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
 
-const navItems = [
+const headerItems = [
+  { name: 'My Feed', icon: Newspaper, path: '/', end: true },
+  { name: 'Athletes', icon: Activity, path: '/athletes' },
+  { name: 'Events', icon: Medal, path: '/events', end: true },
+  { name: 'Explore', icon: Compass, path: '/explore', end: true },
+];
+
+const sidebarItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
   { name: 'Athletes', icon: Activity, path: '/athletes' },
   { name: 'Events', icon: Medal, path: '/events', end: true },
@@ -65,7 +72,7 @@ export function Header() {
           {/* Dropdown menu */}
           {menuOpen && (
           <div className="absolute right-0 top-full mt-2 py-2 min-w-[140px] rounded-xl bg-slate-800 border border-slate-700 shadow-xl z-50">
-            {navItems.map((item) => (
+            {sidebarItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
@@ -88,7 +95,7 @@ export function Header() {
         </div>
           
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => (
+          {headerItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
