@@ -1,55 +1,57 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Header } from '../components/Header';
-import { WelcomeBanner } from '../components/WelcomeBanner';
-import { YourAthletes } from '../components/YourAthletes';
-import { UpcomingRaces } from '../components/UpcomingRaces';
-import { NewsFeed } from '../components/NewsFeed';
-import { RecentResults } from '../components/RecentResults';
+import { UserStoreProvider } from './store/UserStore';
+import { ThemeProvider } from './context/ThemeContext';
+import { OnboardingGuard } from './components/OnboardingGuard';
+import { HomePage } from './routes/HomePage';
+import { OnboardingPage } from './routes/OnboardingPage';
+import { ExplorePage } from './routes/ExplorePage';
+import { ExploreLanePage } from './routes/ExploreLanePage';
+import { StorylinesPage } from './routes/StorylinesPage';
+import { StorylineDetailPage } from './routes/StorylineDetailPage';
+import { SavedPage } from './routes/SavedPage';
+import { LearnPage } from './routes/LearnPage';
+import { RecapPage } from './routes/RecapPage';
+import { SettingsPage } from './routes/SettingsPage';
 import { EventPage } from '../components/EventPage';
 import { SwimmerPage } from '../components/SwimmerPage';
-import { ExplorePage } from '../components/ExplorePage';
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-300 pb-20 font-sans">
-      <Header />
-
-      <main className="container mx-auto px-4 py-6 space-y-8 max-w-6xl">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <>
-                <section>
-                  <WelcomeBanner />
-                </section>
-                <section>
-                  <YourAthletes />
-                </section>
-                <section>
-                  <UpcomingRaces />
-                </section>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <section className="lg:col-span-2">
-                    <NewsFeed />
-                  </section>
-                  <section className="lg:col-span-1">
-                    <RecentResults />
-                  </section>
-                </div>
-              </>
-            }
-          />
-          <Route path="/events" element={<EventPage />} />
-          <Route path="/athletes" element={<SwimmerPage />} />
-          <Route path="/explore" element={<ExplorePage />} />
-        </Routes>
-      </main>
-
-      <footer className="border-t border-slate-800 mt-12 py-8 text-center text-slate-500 text-sm">
-        <p>© 2024 SwimStats. Your personal swimming companion.</p>
-      </footer>
-    </div>
+    <ThemeProvider>
+      <UserStoreProvider>
+        <div className="min-h-screen bg-slate-900 text-slate-300 pb-20 font-sans">
+        <Header />
+        <main className="container mx-auto px-4 py-6 space-y-8 max-w-6xl">
+          <Routes>
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route
+              path="/"
+              element={
+                <OnboardingGuard>
+                  <HomePage />
+                </OnboardingGuard>
+              }
+            />
+            <Route path="/events" element={<EventPage />} />
+            <Route path="/athletes" element={<SwimmerPage />} />
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/explore/:laneId" element={<ExploreLanePage />} />
+            <Route path="/storylines" element={<StorylinesPage />} />
+            <Route path="/storylines/:id" element={<StorylineDetailPage />} />
+            <Route path="/saved" element={<OnboardingGuard><SavedPage /></OnboardingGuard>} />
+            <Route path="/learn" element={<OnboardingGuard><LearnPage /></OnboardingGuard>} />
+            <Route path="/recap" element={<OnboardingGuard><RecapPage /></OnboardingGuard>} />
+            <Route path="/settings" element={<OnboardingGuard><SettingsPage /></OnboardingGuard>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+        <footer className="border-t border-slate-800 mt-12 py-8 text-center text-slate-500 text-sm">
+          <p>© 2024 SwimStats. Your personal swimming companion.</p>
+        </footer>
+        </div>
+      </UserStoreProvider>
+    </ThemeProvider>
   );
 }
