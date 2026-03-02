@@ -57,9 +57,9 @@ export function Header() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           
         {/* Logo with dropdown */}
-          <div className="relative" ref={menuRef}>
+          <div className="relative" ref={logoMenuRef}>
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => setLogoMenuOpen(!logoMenuOpen)}
             className="flex items-center gap-2"
           >
             <div className="p-2 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20">
@@ -71,14 +71,14 @@ export function Header() {
           </button>
 
           {/* Dropdown menu */}
-          {menuOpen && (
+          {logoMenuOpen && (
           <div className="absolute right-0 top-full mt-2 py-2 min-w-[140px] rounded-xl bg-slate-800 border border-slate-700 shadow-xl z-50">
             {sidebarItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
                 end={item.end}
-                onClick={() => setMenuOpen(false)}
+                onClick={() => setLogoMenuOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
                     isActive 
@@ -96,28 +96,46 @@ export function Header() {
         </div>
           
         <nav className="hidden md:flex items-center gap-1">
-          {headerItems.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
               end={item.end}
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  isActive ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    isActive ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 }`
               }
             >
-              <item.icon className="h-4 w-4" />
-              {item.name}
+            <item.icon className="h-4 w-4" />
+                {item.name}
             </NavLink>
           ))}
         </nav>
 
         <div className="flex items-center gap-2">
           <ThemeSwitcher />
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-            JD
+          {/* Logo with dropdown */}
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              className="flex items-center gap-2"
+            >
+            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
+                JD
+            </div>
+          </button>
+
+          {/* Dropdown menu */}
+          {profileMenuOpen && (
+            <div className="absolute top-full right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+              <NavLink to="/settings" className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300">
+                <Settings className="h-4 w-4" />
+                Settings
+              </NavLink>
+            </div>
           </div>
+          )}
         </div>
       </div>
     </header>
