@@ -56,7 +56,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           
-        {/* Logo with dropdown */}
+        {/* Logo sidebar */}
           <div className="relative" ref={logoMenuRef}>
           <button
             onClick={() => setLogoMenuOpen(!logoMenuOpen)}
@@ -95,8 +95,9 @@ export function Header() {
           )}
         </div>
           
+        {/* Header */}
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => (
+          {headerItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
@@ -114,28 +115,28 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <ThemeSwitcher />
           {/* Logo with dropdown */}
           <div className="relative" ref={profileMenuRef}>
             <button
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
               className="flex items-center gap-2"
             >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-                JD
-            </div>
-          </button>
+              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
+                  JD
+              </div>
+            </button>
 
-          {/* Dropdown menu */}
-          {profileMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
-              <NavLink to="/settings" className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300">
-                <Settings className="h-4 w-4" />
-                Settings
-              </NavLink>
-            </div>
+            {/* Dropdown menu */}
+            {profileMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-30 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                <NavLink to="/settings" className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </NavLink>
+                <ThemeSwitcher />
+              </div>
+            )}
           </div>
-          )}
         </div>
       </div>
     </header>
