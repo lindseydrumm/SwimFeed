@@ -31,25 +31,26 @@ const sidebarItems = [
 
 
 export function Header() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+    const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     
-  // Close menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
+    const logoMenuRef = useRef(null);
+    const profileMenuRef = useRef(null);
+
+    // Close menus when clicking outside
+    useEffect(() => {
+      function handleClickOutside(event) {
+        if (logoMenuRef.current && !logoMenuRef.current.contains(event.target)) {
+          setLogoMenuOpen(false);
+        }
+        if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+          setProfileMenuOpen(false);
+        }
       }
-    }
 
-    if (menuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [menuOpen]);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
     
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
