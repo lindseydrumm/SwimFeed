@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Stepper } from '../../components/Stepper';
 import { FollowButton } from '../../components/FollowButton';
 import { useUser } from '../store/UserStore';
+import { LoginPage } from './LoginPage';
 import type { OnboardingGoal, DigestPreference, UserProfile } from '../types/domain';
 
 const GOALS: { value: OnboardingGoal; label: string }[] = [
@@ -58,7 +59,7 @@ export function OnboardingPage() {
   });
   const [digestPreference, setDigestPreference] = useState<DigestPreference>('weekly');
 
-  const steps = ['Goals', 'Interests', 'Follow', 'Digest'];
+  const steps = ['Goals', 'Interests', 'Follow', 'Digest', 'Login'];
   const totalSteps = steps.length;
 
   const toggleGoal = (g: OnboardingGoal) => {
@@ -261,6 +262,27 @@ export function OnboardingPage() {
             </div>
             <div className="flex justify-between pt-4">
               <button type="button" onClick={() => setStep(2)} className="text-slate-400 hover:text-white text-sm">
+                Back
+              </button>
+              <button type="button" onClick={() => setStep(4)} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium">
+                Next
+              </button>
+            </div>
+          </motion.div>
+        )}
+          
+        {step == 4 && (
+          <motion.div
+            key="digest"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <LoginPage />
+                       
+            <div className="flex justify-between pt-4">
+              <button type="button" onClick={() => setStep(3)} className="text-slate-400 hover:text-white text-sm">
                 Back
               </button>
               <button type="button" onClick={handleFinish} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium">
