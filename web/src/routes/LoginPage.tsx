@@ -15,9 +15,15 @@ export function LoginPage() {
   const [password, setPassword] = useState(""); 
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isAuthed()) navigate(redirectTo, { replace: true });
-  }, [navigate, redirectTo]);
+//  useEffect(() => {
+//    if (isAuthed()) navigate(redirectTo, { replace: true });
+//  }, [navigate, redirectTo]);
+    
+    useEffect(() => {
+      if (isAuthed()) {
+        navigate(redirectTo, { replace: true });
+      }
+    }, []);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +36,10 @@ export function LoginPage() {
     
     login(trimmed);
     navigate(redirectTo, { replace: true });
+  }
+    
+  if (isAuthed()) {
+    return null;
   }
 
   return (
