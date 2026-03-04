@@ -55,3 +55,21 @@ def list_articles():
         rows = conn.execute(query).mappings().all()
 
     return rows
+
+
+class LoginIn(BaseModel):
+    email: str
+    password: str  
+
+@app.post("/login")
+def login_user(login: LoginIn):
+    query = text("""
+        INSERT INTO users (email)
+        VALUES (:email)
+        ON CONFLICT (email) DO NOTHING;
+    """)
+
+    with engine.begin() as conn:
+        conn.execute(query, {"email": login.email})
+
+    return {"status": "ok", "email": login.email}

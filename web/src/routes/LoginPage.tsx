@@ -12,8 +12,9 @@ export function LoginPage() {
   const redirectTo = useMemo(() => state.from || "/explore", [state.from]);
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); 
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
 //  useEffect(() => {
 //    if (isAuthed()) navigate(redirectTo, { replace: true });
@@ -25,7 +26,7 @@ export function LoginPage() {
       }
     }, []);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -33,9 +34,33 @@ export function LoginPage() {
     if (!trimmed) return setError("Please enter your email.");
     if (!trimmed.includes("@")) return setError("Please enter a valid email.");
 
-    
-    login(trimmed);
-    navigate(redirectTo, { replace: true });
+    try {
+      setLoading(true);
+
+      const res = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: trimmed,
+          password,
+        }),
+      });
+
+      if (!res.ok) {
+        setError("Login failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      login(trimmed);
+      navigate(redirectTo, { replace: true });
+    } catch (err) {
+      setError("Server connection failed.");
+    } finally {
+      setLoading(false);
+    }
   }
     
   if (isAuthed()) {
@@ -80,13 +105,14 @@ export function LoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-slate-200 px-4 py-2 font-semibold text-slate-900 hover:bg-white transition"
+            disabled={loading}
+            className="w-full rounded-xl bg-slate-200 px-4 py-2 font-semibold text-slate-900 hover:bg-white transition disabled:opacity-50"
           >
-            Sign In
+            {loading ? "Signing in..." : "Sign In"}
           </button>
 
           <p className="text-xs text-slate-500">
-            MVP login uses localStorage. We can connect it to backend auth later.
+            Login state is stored locally and also recorded on the backend.
           </p>
         </form>
       </div>
