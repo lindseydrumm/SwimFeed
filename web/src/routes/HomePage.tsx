@@ -22,6 +22,8 @@ export function HomePage() {
   useEffect(() => {
     if (ready) touchVisit();
   }, [ready, touchVisit]);
+    
+  const displayName = useState(state?.profile?.displayName);
 
   const name = state?.profile?.displayName ?? 'there';
   const lastVisit = state?.activity?.lastVisitAt;
@@ -52,7 +54,7 @@ export function HomePage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-            Welcome back, {name}
+            Welcome back, {displayName}
           </h1>
           <p className="text-slate-400 text-sm md:text-base flex items-center gap-2 flex-wrap">
             <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
