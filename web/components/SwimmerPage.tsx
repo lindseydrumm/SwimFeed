@@ -10,22 +10,23 @@ import { Badge } from './ui/Badge';
 import { Trophy, TrendingUp, Clock } from 'lucide-react';
 import { FollowButton } from './FollowButton';
 import { getAthlete, type Athlete } from '../src/api/athletes';
-
-const ATHLETE_SLUG = 'leon-marchand';
+import { useParams } from 'react-router-dom';
 
 export function SwimmerPage() {
   const [athlete, setAthlete] = useState<Athlete | null>(null);
+  const { slug } = useParams();
+  const athleteSlug = slug ?? 'leon-marchand';
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await getAthlete(ATHLETE_SLUG);
+        const data = await getAthlete(athleteSlug);
         setAthlete(data);
       } catch {
         // fall back to static copy if API fails
       }
     })();
-  }, []);
+  }, [athleteSlug]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-12">
@@ -92,7 +93,7 @@ export function SwimmerPage() {
         >
           <FollowButton
             entityType="athlete"
-            entityId={athlete?.slug ?? ATHLETE_SLUG}
+            entityId={athlete?.slug ?? athleteSlug}
             name={athlete?.name ?? 'Michael Phelps'}
             label="Follow"
             followingLabel="Following"

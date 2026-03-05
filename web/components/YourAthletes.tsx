@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Users } from 'lucide-react';
 import { getAthletes, type Athlete } from '../src/api/athletes';
+import { Link } from 'react-router-dom';
 
 function getInitials(name: string) {
   const parts = name.split(' ').filter(Boolean);
@@ -46,7 +47,8 @@ export function YourAthletes() {
       </CardHeader>
       <CardContent className="pt-2">
         <div className="flex gap-6 overflow-x-auto pb-4 pt-2 scrollbar-hide snap-x">
-          {athletes.map((athlete, index) => <motion.div key={athlete.slug ?? athlete.name} initial={{
+          {athletes.map((athlete, index) => <Link key={athlete.slug ?? athlete.name} to={`/athletes/${athlete.slug ?? 'leon-marchand'}`} className="contents">
+            <motion.div initial={{
           opacity: 0,
           x: 20
         }} animate={{
@@ -71,7 +73,8 @@ export function YourAthletes() {
                   {getPrimaryEvent(athlete.strokes)}
                 </p>
               </div>
-            </motion.div>)}
+            </motion.div>
+          </Link>)}
 
           <motion.div initial={{
           opacity: 0,
