@@ -26,7 +26,6 @@ const sidebarItems = [
   { name: 'Learn', icon: BookMarked, path: '/learn', end: true },
   { name: 'Saved', icon: Bookmark, path: '/saved', end: true },
   { name: 'Recap', icon: BarChart3, path: '/recap', end: true },
-  { name: 'Settings', icon: Settings, path: '/settings', end: true },
 ];
 
 
