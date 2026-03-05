@@ -106,12 +106,56 @@ def scrape_usaswimming_spotlight() -> list[dict]:
     athletes: list[dict] = []
 
     # Heuristic: names often appear inside cards or figure captions.
-    for card in soup.select("a, div"):
-        name = card.get_text(strip=True)
+    # We further filter for things that look like \"First Last\" or \"First M Last\"
+    # and avoid generic nav / section labels.
+    STOP_WORDS = {
+        "Home",
+        "Events",
+        "Tickets",
+        "Shop",
+        "Resources",
+        "Parents",
+        "Times",
+        "Standards",
+        "Records",
+        "Results",
+        "Information",
+        "Coaches",
+        "Officials",
+        "Summit",
+        "Governance",
+        "Services",
+        "Programs",
+        "Team",
+        "Club",
+        "Database",
+        "Archive",
+        "Recognition",
+        "Incentive",
+        "Login",
+        "Register",
+    }
+
+    for el in soup.select("a, div"):
+        name = el.get_text(strip=True)
         if not name:
             continue
-        # Simple filter: look for likely athlete names (contain a space).
-        if " " not in name or len(name.split()) > 4:
+
+        # Must contain a space (first + last name) and not be excessively long.
+        parts = name.split()
+        if len(parts) < 2 or len(parts) > 3:
+            continue
+
+        # Skip if any part contains non-letter chars (avoid & or ellipses).
+        if any(not p.replace("-", "").isalpha() for p in parts):
+            continue
+
+        # Require that each word looks like a proper name (Title Case).
+        if not all(p[0].isupper() and p[1:].islower() for p in parts):
+            continue
+
+        # Skip obvious nav / section words.
+        if any(p in STOP_WORDS for p in parts):
             continue
 
         payload = {
