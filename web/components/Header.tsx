@@ -9,13 +9,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
-
-const headerItems = [
-  { name: 'My Feed', icon: Newspaper, path: '/', end: true },
-  { name: 'Athletes', icon: Activity, path: '/athletes' },
-  { name: 'Events', icon: Medal, path: '/events', end: true },
-  { name: 'Explore', icon: Compass, path: '/explore', end: true },
-];
+import { useUser } from '../src/store/UserStore';
+import type { OnboardingGoal } from '../types/domain';
 
 const sidebarItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
@@ -33,6 +28,19 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
     
+  // value: 'training', label: 'Training & technique'
+  const { state } = useUser();
+  const userGoals = state?.profile?.goals || [];
+  const hasLearnGoal = userGoals.includes('learn');
+    
+  const headerItems = [
+    { name: 'My Feed', icon: Newspaper, path: '/', end: true },
+    { name: 'Athletes', icon: Activity, path: '/athletes' },
+    { name: 'Events', icon: Medal, path: '/events', end: true },
+    { name: 'Explore', icon: Compass, path: '/explore', end: true },
+    ...(hasLearnGoal ? [{ name: 'Learn', icon: BookMarked, path: '/learn', end: true }] : []),
+  ];
+    
   // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
@@ -40,11 +48,9 @@ export function Header() {
         setMenuOpen(false);
       }
     }
-
     if (menuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };

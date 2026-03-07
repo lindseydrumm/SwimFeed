@@ -17,6 +17,7 @@ const GOALS: { value: OnboardingGoal; label: string }[] = [
   { value: 'events', label: 'Events & meets' },
   { value: 'athletes', label: 'Athletes' },
   { value: 'training', label: 'Training & technique' },
+  { value: 'learn', label: 'Learn about swimming'},
 ];
 
 const INTEREST_CHIPS = {
