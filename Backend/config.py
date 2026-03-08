@@ -9,11 +9,12 @@ class Settings(BaseSettings):
     """Application settings with type validation."""
 
     # Database Configuration
-    database_url: str = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
+    database_url: str = "postgresql+psycopg2://dev:dev@localhost:5432/swimlive"
 
     # Scraper Configuration
     feed_url: str = "https://swimswam.com/feed/"
-    api_url: str = "http://backend:8000/ingest/article"
+    api_url: str = "http://localhost:8000/ingest/article"
+    event_api_url: str = "http://localhost:8000/ingest/event"
 
     # Application Configuration
     app_name: str = "Swim Live Backend"

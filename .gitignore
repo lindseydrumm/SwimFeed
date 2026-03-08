@@ -5,4 +5,5 @@
 
 # Backend
 Backend/__pycache__
+Backend/scrapers/__pycache__
 Backend/.envrc

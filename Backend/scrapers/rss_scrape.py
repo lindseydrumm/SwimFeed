@@ -1,6 +1,7 @@
 # scrape.py
 # gets article data from multiple web sources
 
+import sys
 import feedparser
 import requests
 from datetime import datetime

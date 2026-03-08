@@ -57,3 +57,44 @@ def list_articles():
         rows = conn.execute(query).mappings().all()
 
     return rows
+
+
+# event structure
+class EventIn(BaseModel):
+    external_id: int
+    name: str
+    date_from: datetime | None
+    date_to: datetime | None
+    city: str | None
+    country: str | None
+    country_code: str | None
+    competition_type: str | None
+    disciplines: str | None
+
+
+@app.post("/ingest/event")
+def ingest_event(event: EventIn):
+    query = text("""
+                 INSERT INTO events (external_id, name, date_from, date_to,
+                                     city, country, country_code,
+                                     competition_type, disciplines)
+                 VALUES (:external_id, :name, :date_from, :date_to,
+                         :city, :country, :country_code,
+                         :competition_type, :disciplines)
+                 ON CONFLICT (external_id) DO NOTHING;
+                 """)
+
+    with engine.begin() as conn:
+        conn.execute(query, event.model_dump())
+
+    return {"status": "ok"}
+
+
+@app.get("/events")
+def list_events():
+    query = text("SELECT * FROM events ORDER BY date_from ASC")
+
+    with engine.begin() as conn:
+        rows = conn.execute(query).mappings().all()
+
+    return rows
