@@ -7,10 +7,11 @@ from datetime import datetime
 from sqlalchemy import create_engine, text
 from fastapi.middleware.cors import CORSMiddleware
 
+# import environmental variables
 from config import settings
 
 # main app
-app = FastAPI()
+app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 # Allow cross-origin requests from the frontend development server
 app.add_middleware(

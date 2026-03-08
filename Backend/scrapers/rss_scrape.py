@@ -6,6 +6,7 @@ import feedparser
 import requests
 from datetime import datetime
 
+# import environmental vars
 from config import settings
 
 

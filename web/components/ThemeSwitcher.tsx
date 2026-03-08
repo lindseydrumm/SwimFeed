@@ -23,11 +23,12 @@ export function ThemeSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="p-2 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800/50 hover:border-cyan-500/30 transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300"
         title="Change vibe"
         aria-label="Theme"
       >
-        <Palette className="w-5 h-5" />
+        <Palette className="w-4 h-4" />
+          Theme
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-2 py-2 min-w-[140px] rounded-xl bg-slate-800 border border-slate-700 shadow-xl z-50">
