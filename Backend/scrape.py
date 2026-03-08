@@ -5,7 +5,8 @@ import feedparser
 import requests
 from datetime import datetime
 
-API_URL = "http://127.0.0.1:8000/ingest/article"
+# import environmental vars
+from config import settings
 
 
 SOURCES = [
@@ -42,9 +43,9 @@ for s in SOURCES:
                 else None
             ),
             "summary": entry.summary if hasattr(entry, "summary") else None,
-            "source": s["source"],   
+            "source": s["source"],
         }
 
-        response = requests.post(API_URL, json=article)
+        response = requests.post(settings.api_url, json=article)
 
         print(f"[{s['source']}] {article['title']} -> {response.status_code}")

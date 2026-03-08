@@ -7,8 +7,11 @@ from datetime import datetime
 from sqlalchemy import create_engine, text
 from fastapi.middleware.cors import CORSMiddleware
 
+# import environmental variables
+from config import settings
+
 # main app
-app = FastAPI()
+app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 # Allow cross-origin requests from the frontend development server
 app.add_middleware(
@@ -20,8 +23,7 @@ app.add_middleware(
 )
 
 # engine
-DATABASE_URL = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
-engine = create_engine(DATABASE_URL)
+engine = create_engine(settings.database_url)
 
 
 # article structure
