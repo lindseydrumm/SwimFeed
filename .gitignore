@@ -2,3 +2,4 @@
 .env
 
 Backend/__pycache__
+Backend/scrapers/__pycache__
