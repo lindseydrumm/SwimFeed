@@ -132,7 +132,7 @@ export function Header() {
                   <Settings className="h-4 w-4" />
                   Settings
                 </NavLink>
-                <ThemeSwitcher />
+                <ThemeSwitcher/>
               </div>
             )}
           </div>
