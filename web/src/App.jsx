@@ -15,6 +15,7 @@ import { LearnPage } from './routes/LearnPage';
 import { RecapPage } from './routes/RecapPage';
 import { SettingsPage } from './routes/SettingsPage';
 import { EventPage } from '../components/EventPage';
+import { EventDetailPage } from '../components/EventDetailPage';
 import { SwimmerPage } from '../components/SwimmerPage';
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
               }
             />
             <Route path="/events" element={<EventPage />} />
+            <Route path="/events/:id" element={<EventDetailPage />} />
             <Route path="/athletes" element={<SwimmerPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/explore/:laneId" element={<ExploreLanePage />} />
