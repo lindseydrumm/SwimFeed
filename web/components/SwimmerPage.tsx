@@ -3,17 +3,30 @@
 // Styled to match project-swim-live (dark theme, Card/Badge from ui).
 //
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { Trophy, TrendingUp, Clock } from 'lucide-react';
 import { FollowButton } from './FollowButton';
-
-const ATHLETE_ID = 'phelps';
-const ATHLETE_NAME = 'Michael Phelps';
+import { getAthlete, type Athlete } from '../src/api/athletes';
+import { useParams } from 'react-router-dom';
 
 export function SwimmerPage() {
+  const [athlete, setAthlete] = useState<Athlete | null>(null);
+  const { slug } = useParams();
+  const athleteSlug = slug ?? 'leon-marchand';
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getAthlete(athleteSlug);
+        setAthlete(data);
+      } catch {
+        // fall back to static copy if API fails
+      }
+    })();
+  }, [athleteSlug]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-12">
@@ -31,7 +44,7 @@ export function SwimmerPage() {
         >
           <img
             src="https://images.unsplash.com/photo-1552065327-43675de3d3a1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
-            alt="Profile"
+            alt={athlete?.name ?? 'Athlete profile'}
             className="w-full h-full object-cover"
           />
         </motion.div>
@@ -42,7 +55,7 @@ export function SwimmerPage() {
           transition={{ delay: 0.2 }}
           className="text-4xl font-light text-white mb-3"
         >
-          Michael Phelps
+          {athlete?.name ?? 'Michael Phelps'}
         </motion.h1>
 
         <motion.div
@@ -52,14 +65,24 @@ export function SwimmerPage() {
           className="flex justify-center gap-3 mb-6 flex-wrap"
         >
           <Badge variant="accent" className="px-3 py-1 text-sm">
-            USA
+            {athlete?.country ?? 'USA'}
           </Badge>
-          <Badge variant="secondary" className="px-3 py-1 text-sm">
-            Butterfly
-          </Badge>
-          <Badge variant="secondary" className="px-3 py-1 text-sm">
-            IM
-          </Badge>
+          {athlete?.strokes
+            ? athlete.strokes.split(',').map((stroke) => (
+                <Badge key={stroke.trim()} variant="secondary" className="px-3 py-1 text-sm">
+                  {stroke.trim()}
+                </Badge>
+              ))
+            : (
+              <>
+                <Badge variant="secondary" className="px-3 py-1 text-sm">
+                  Butterfly
+                </Badge>
+                <Badge variant="secondary" className="px-3 py-1 text-sm">
+                  IM
+                </Badge>
+              </>
+            )}
         </motion.div>
 
         <motion.div
@@ -70,8 +93,8 @@ export function SwimmerPage() {
         >
           <FollowButton
             entityType="athlete"
-            entityId={ATHLETE_ID}
-            name={ATHLETE_NAME}
+            entityId={athlete?.slug ?? athleteSlug}
+            name={athlete?.name ?? 'Michael Phelps'}
             label="Follow"
             followingLabel="Following"
           />
@@ -90,12 +113,8 @@ export function SwimmerPage() {
           <CardContent className="p-8">
             <h2 className="text-lg font-medium text-white mb-3">About</h2>
             <p className="text-slate-400 font-light leading-relaxed">
-              Michael Phelps is the most decorated Olympian of all time, with 28
-              medals across five Olympic Games. Known for his dominance in
-              butterfly and individual medley events, Phelps redefined what was
-              possible in competitive swimming before retiring after Rio 2016. His
-              legacy continues to inspire the next generation of swimmers
-              worldwide.
+              {athlete?.bio
+                ?? 'Michael Phelps is the most decorated Olympian of all time, with 28 medals across five Olympic Games. Known for his dominance in butterfly and individual medley events, Phelps redefined what was possible in competitive swimming before retiring after Rio 2016. His legacy continues to inspire the next generation of swimmers worldwide.'}
             </p>
           </CardContent>
         </Card>
@@ -104,9 +123,9 @@ export function SwimmerPage() {
       {/* Stats Grid */}
       <div className="grid md:grid-cols-3 gap-6">
         {[
-          { label: 'Olympic Medals', value: '28', icon: Trophy },
-          { label: 'World Records', value: '39', icon: Clock },
-          { label: 'World Rank', value: '#1', icon: TrendingUp },
+          { label: 'Medals', value: athlete?.medals?.toString() ?? '28', icon: Trophy },
+          { label: 'World Records', value: athlete?.world_records?.toString() ?? '39', icon: Clock },
+          { label: 'World Rank', value: athlete?.world_rank ? `#${athlete.world_rank}` : '#1', icon: TrendingUp },
         ].map((stat, i) => (
           <motion.div
             key={i}

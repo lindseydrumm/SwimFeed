@@ -36,6 +36,7 @@ export default function App() {
             />
             <Route path="/events" element={<EventPage />} />
             <Route path="/athletes" element={<SwimmerPage />} />
+            <Route path="/athletes/:slug" element={<SwimmerPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/explore/:laneId" element={<ExploreLanePage />} />
             <Route path="/storylines" element={<StorylinesPage />} />
