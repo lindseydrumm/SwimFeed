@@ -9,17 +9,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import type { UserProfile } from '../src/types/domain';
+import { useUser } from '../src/store/UserStore';
 
 const headerItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
-  { name: 'Athletes', icon: Activity, path: '/athletes' },
+  { name: 'Athletes', icon: Activity, path: '/athletes/leon-marchand' },
   { name: 'Events', icon: Medal, path: '/events', end: true },
   { name: 'Explore', icon: Compass, path: '/explore', end: true },
 ];
 
 const sidebarItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
-  { name: 'Athletes', icon: Activity, path: '/athletes' },
+  { name: 'Athletes', icon: Activity, path: '/athletes/leon-marchand' },
   { name: 'Events', icon: Medal, path: '/events', end: true },
   { name: 'Explore', icon: Compass, path: '/explore', end: true },
   { name: 'Storylines', icon: BookOpen, path: '/storylines', end: true },
@@ -50,6 +52,18 @@ export function Header() {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+    
+  // Get user initial
+  const { state } = useUser();
+  const [displayName] = useState(state?.profile?.displayName ?? 'User');
+  const userInitial = displayName
+    .trim()
+    .split(' ')
+    .filter(n => n.length > 0)
+    .slice(0, 2) // Only take first 2 names
+    .map(n => n[0])
+    .join('')
+    .toUpperCase() || 'U'; // Fallback to 'U' if empty
     
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
@@ -114,14 +128,14 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {/* Logo with dropdown */}
+        {/* Logo with dropdown */}
           <div className="relative" ref={profileMenuRef}>
             <button
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
               className="flex items-center gap-2"
             >
               <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-                  JD
+                {userInitial}
               </div>
             </button>
 
@@ -130,7 +144,7 @@ export function Header() {
               <div className="absolute top-full right-0 mt-2 w-30 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
                 <NavLink to="/settings" className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300">
                   <Settings className="h-4 w-4" />
-                  Settings
+                    Settings
                 </NavLink>
                 <ThemeSwitcher/>
               </div>
