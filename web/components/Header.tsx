@@ -55,7 +55,7 @@ export function Header() {
     
   // Get user initial
   const { state } = useUser();
-  const [displayName] = useState(state?.profile?.displayName ?? ' ');
+  const [displayName] = useState(state?.profile?.displayName ?? 'User');
   const userInitial = displayName
     .trim()
     .split(' ')
@@ -64,9 +64,6 @@ export function Header() {
     .map(n => n[0])
     .join('')
     .toUpperCase() || 'U'; // Fallback to 'U' if empty
-    
-  console.log("name: ", displayName);
-  console.log("initial: ", userInitial);
     
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
@@ -131,19 +128,14 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-<<<<<<< HEAD
-          <ThemeSwitcher />
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-          {userInitial}
-=======
-          {/* Logo with dropdown */}
+        {/* Logo with dropdown */}
           <div className="relative" ref={profileMenuRef}>
             <button
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
               className="flex items-center gap-2"
             >
               <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-                  JD
+                {userInitial}
               </div>
             </button>
 
@@ -152,12 +144,11 @@ export function Header() {
               <div className="absolute top-full right-0 mt-2 w-30 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
                 <NavLink to="/settings" className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300">
                   <Settings className="h-4 w-4" />
-                  Settings
+                    Settings
                 </NavLink>
                 <ThemeSwitcher/>
               </div>
             )}
->>>>>>> e49f0046510138c677deff9ec532de4134d0ffc1
           </div>
         </div>
       </div>
