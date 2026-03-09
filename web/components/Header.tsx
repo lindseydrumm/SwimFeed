@@ -9,6 +9,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import type { UserProfile } from '../src/types/domain';
+import { useUser } from '../src/store/UserStore';
 
 const headerItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
@@ -50,6 +52,24 @@ export function Header() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [menuOpen]);
+    
+  // Get user initial
+  const { state } = useUser();
+  const [displayName] = useState(state?.profile?.displayName ?? ' ');
+  const userInitial = displayName
+//    displayName.trim().split(' ').length > 1
+//    ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+//    : displayName.slice(0, 2).toUpperCase();
+    .trim()
+    .split(' ')
+    .filter(n => n.length > 0)
+    .slice(0, 2) // Only take first 2 names
+    .map(n => n[0])
+    .join('')
+    .toUpperCase() || 'U'; // Fallback to 'U' if empty
+    
+  console.log("name: ", displayName);
+  console.log("initial: ", userInitial);
     
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
@@ -115,7 +135,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <ThemeSwitcher />
           <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-            JD
+          {userInitial}
           </div>
         </div>
       </div>
