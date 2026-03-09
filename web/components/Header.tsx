@@ -9,6 +9,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import type { UserProfile } from '../src/types/domain';
+import { useUser } from '../src/store/UserStore';
 
 const headerItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
@@ -26,39 +28,51 @@ const sidebarItems = [
   { name: 'Learn', icon: BookMarked, path: '/learn', end: true },
   { name: 'Saved', icon: Bookmark, path: '/saved', end: true },
   { name: 'Recap', icon: BarChart3, path: '/recap', end: true },
-  { name: 'Settings', icon: Settings, path: '/settings', end: true },
 ];
 
 
 export function Header() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+    const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     
-  // Close menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
+    const logoMenuRef = useRef(null);
+    const profileMenuRef = useRef(null);
+
+    // Close menus when clicking outside
+    useEffect(() => {
+      function handleClickOutside(event) {
+        if (logoMenuRef.current && !logoMenuRef.current.contains(event.target)) {
+          setLogoMenuOpen(false);
+        }
+        if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+          setProfileMenuOpen(false);
+        }
       }
-    }
 
-    if (menuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [menuOpen]);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+    
+  // Get user initial
+  const { state } = useUser();
+  const [displayName] = useState(state?.profile?.displayName ?? 'User');
+  const userInitial = displayName
+    .trim()
+    .split(' ')
+    .filter(n => n.length > 0)
+    .slice(0, 2) // Only take first 2 names
+    .map(n => n[0])
+    .join('')
+    .toUpperCase() || 'U'; // Fallback to 'U' if empty
     
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           
-        {/* Logo with dropdown */}
-          <div className="relative" ref={menuRef}>
+        {/* Logo sidebar */}
+          <div className="relative" ref={logoMenuRef}>
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => setLogoMenuOpen(!logoMenuOpen)}
             className="flex items-center gap-2"
           >
             <div className="p-2 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20">
@@ -70,14 +84,14 @@ export function Header() {
           </button>
 
           {/* Dropdown menu */}
-          {menuOpen && (
+          {logoMenuOpen && (
           <div className="absolute right-0 top-full mt-2 py-2 min-w-[140px] rounded-xl bg-slate-800 border border-slate-700 shadow-xl z-50">
             {sidebarItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
                 end={item.end}
-                onClick={() => setMenuOpen(false)}
+                onClick={() => setLogoMenuOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
                     isActive 
@@ -94,6 +108,7 @@ export function Header() {
           )}
         </div>
           
+        {/* Header */}
         <nav className="hidden md:flex items-center gap-1">
           {headerItems.map((item) => (
             <NavLink
@@ -102,20 +117,38 @@ export function Header() {
               end={item.end}
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  isActive ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    isActive ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 }`
               }
             >
-              <item.icon className="h-4 w-4" />
-              {item.name}
+            <item.icon className="h-4 w-4" />
+                {item.name}
             </NavLink>
           ))}
         </nav>
 
         <div className="flex items-center gap-2">
-          <ThemeSwitcher />
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
-            JD
+        {/* Logo with dropdown */}
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              className="flex items-center gap-2"
+            >
+              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-slate-800 cursor-pointer hover:ring-cyan-400 transition-all">
+                {userInitial}
+              </div>
+            </button>
+
+            {/* Dropdown menu */}
+            {profileMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-30 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                <NavLink to="/settings" className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-slate-300">
+                  <Settings className="h-4 w-4" />
+                    Settings
+                </NavLink>
+                <ThemeSwitcher/>
+              </div>
+            )}
           </div>
         </div>
       </div>

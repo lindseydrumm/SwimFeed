@@ -5,8 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 
+# import environmental variables
+from config import settings
+
 # main app
-app = FastAPI()
+app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 # Allow cross-origin requests from the frontend development server
 app.add_middleware(
@@ -18,8 +21,7 @@ app.add_middleware(
 )
 
 # engine
-DATABASE_URL = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
-engine = create_engine(DATABASE_URL)
+engine = create_engine(settings.database_url)
 
 
 @app.on_event("startup")
@@ -113,6 +115,33 @@ def ingest_athlete(athlete: AthleteIn):
 
     with engine.begin() as conn:
         conn.execute(query, athlete.model_dump())
+# event structure
+class EventIn(BaseModel):
+    external_id: int
+    name: str
+    date_from: datetime | None
+    date_to: datetime | None
+    city: str | None
+    country: str | None
+    country_code: str | None
+    competition_type: str | None
+    disciplines: str | None
+
+
+@app.post("/ingest/event")
+def ingest_event(event: EventIn):
+    query = text("""
+                 INSERT INTO events (external_id, name, date_from, date_to,
+                                     city, country, country_code,
+                                     competition_type, disciplines)
+                 VALUES (:external_id, :name, :date_from, :date_to,
+                         :city, :country, :country_code,
+                         :competition_type, :disciplines)
+                 ON CONFLICT (external_id) DO NOTHING;
+                 """)
+
+    with engine.begin() as conn:
+        conn.execute(query, event.model_dump())
 
     return {"status": "ok"}
 
@@ -120,6 +149,9 @@ def ingest_athlete(athlete: AthleteIn):
 @app.get("/athletes")
 def list_athletes():
     query = text("SELECT * FROM athletes ORDER BY name ASC")
+@app.get("/events")
+def list_events():
+    query = text("SELECT * FROM events ORDER BY date_from ASC")
 
     with engine.begin() as conn:
         rows = conn.execute(query).mappings().all()
