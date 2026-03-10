@@ -128,6 +128,10 @@ export function NewsFeed() {
           summary: n.summary,
           source: 'mock',
         }));
+    
+  // FUNCTION to select relevant articles
+  // for now, just first 5
+  const custom_items = items.slice(0,5)
 
   return (
     <div className="space-y-4">
@@ -138,7 +142,7 @@ export function NewsFeed() {
       {error && <div className="text-sm text-red-400">{error}</div>}
 
       <div className="space-y-4">
-        {items.map((item, index) => {
+        {custom_items.map((item, index) => {
           const imageSrc = getImageSrc(item.summary);
           const urlOrId = item.url !== '#' ? item.url : String(item.id ?? index);
           const seen = isSeen(urlOrId);
