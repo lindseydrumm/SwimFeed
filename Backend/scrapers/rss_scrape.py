@@ -45,7 +45,7 @@ def main():
                 "source": s["source"],
             }
 
-            response = requests.post(settings.api_url, json=article)
+            response = requests.post(settings.article_api_url, json=article)
 
             print(f"[{s['source']}] {article['title']} -> {response.status_code}")
 
