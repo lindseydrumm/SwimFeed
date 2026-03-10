@@ -13,10 +13,10 @@ from config import settings
 # main app
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 
-# Allow cross-origin requests from the frontend
+# Allow cross-origin requests from the frontend development server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.allowed_origins.split(",")],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,52 +37,33 @@ def slugify(name: str) -> str:
 
 
 # engine
-# Render provides postgres:// but SQLAlchemy requires postgresql://
-db_url = settings.database_url.replace("postgres://", "postgresql+psycopg2://", 1)
-engine = create_engine(db_url)
+engine = create_engine(settings.database_url)
 
 
+# deprecated
 @app.on_event("startup")
-def create_tables():
-    """Ensure all tables exist on startup (needed for Render / non-Docker deploys)."""
+def init_db() -> None:
+    """Ensure required tables exist."""
     with engine.begin() as conn:
         conn.execute(
-            text("""
-            CREATE TABLE IF NOT EXISTS athletes (
-                id            SERIAL PRIMARY KEY,
-                slug          TEXT UNIQUE NOT NULL,
-                external_id   INTEGER UNIQUE NOT NULL,
-                name          TEXT NOT NULL,
-                country       TEXT,
-                flag          TEXT,
-                strokes       TEXT,
-                bio           TEXT,
-                medals        INTEGER,
-                world_records INTEGER,
-                world_rank    INTEGER,
-                img           TEXT
-            );
-            CREATE TABLE IF NOT EXISTS articles (
-                id            SERIAL PRIMARY KEY,
-                title         TEXT NOT NULL,
-                url           TEXT UNIQUE NOT NULL,
-                published_at  TIMESTAMP,
-                summary       TEXT,
-                source        TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS events (
-                id              SERIAL PRIMARY KEY,
-                external_id     INTEGER UNIQUE NOT NULL,
-                name            TEXT NOT NULL,
-                date_from       TIMESTAMP,
-                date_to         TIMESTAMP,
-                city            TEXT,
-                country         TEXT,
-                country_code    TEXT,
-                competition_type TEXT,
-                disciplines     TEXT
-            );
-        """)
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS athletes (
+                    id SERIAL PRIMARY KEY,
+                    slug TEXT UNIQUE NOT NULL,
+                    external_id INTEGER UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    country TEXT,
+                    flag TEXT,
+                    strokes TEXT,
+                    bio TEXT,
+                    medals INTEGER,
+                    world_records INTEGER,
+                    world_rank INTEGER,
+                    img TEXT
+                );
+                """
+            )
         )
 
 
