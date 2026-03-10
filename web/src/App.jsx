@@ -17,6 +17,7 @@ import { SettingsPage } from './routes/SettingsPage';
 import { EventPage } from '../components/EventPage';
 import { EventDetailPage } from '../components/EventDetailPage';
 import { SwimmerPage } from '../components/SwimmerPage';
+import { AthletesPage } from '../components/AthletesPage';
 
 export default function App() {
   return (
@@ -37,7 +38,7 @@ export default function App() {
             />
             <Route path="/events" element={<EventPage />} />
             <Route path="/events/:id" element={<EventDetailPage />} />
-            <Route path="/athletes" element={<SwimmerPage />} />
+            <Route path="/athletes" element={<AthletesPage />} />
             <Route path="/athletes/:slug" element={<SwimmerPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/explore/:laneId" element={<ExploreLanePage />} />

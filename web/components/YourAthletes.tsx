@@ -10,8 +10,9 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Users } from 'lucide-react';
-import { getAthletes, type Athlete } from '../src/api/athletes';
+import { getAthletesBySlug, type Athlete } from '../src/api/athletes';
 import { Link } from 'react-router-dom';
+import { useUser } from '../src/store/UserStore';
 
 function getInitials(name: string) {
   const parts = name.split(' ').filter(Boolean);
@@ -26,17 +27,23 @@ function getPrimaryEvent(strokes?: string | null) {
 
 export function YourAthletes() {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const { state } = useUser();
+  const followedSlugs = (state?.follows.athletes ?? []).map((e) => e.id);
 
   useEffect(() => {
+    if (followedSlugs.length === 0) {
+      setAthletes([]);
+      return;
+    }
     (async () => {
       try {
-        const data = await getAthletes();
+        const data = await getAthletesBySlug(followedSlugs);
         setAthletes(data ?? []);
       } catch {
         // If backend is down, keep empty; UI still renders "Add Athlete"
       }
     })();
-  }, []);
+  }, [followedSlugs.join(',')]);
 
   return <Card delay={0.1} className="overflow-hidden">
       <CardHeader className="pb-2">
@@ -76,22 +83,24 @@ export function YourAthletes() {
             </motion.div>
           </Link>)}
 
-          <motion.div initial={{
-          opacity: 0,
-          x: 20
-        }} animate={{
-          opacity: 1,
-          x: 0
-        }} transition={{
-          delay: 0.2 + (athletes?.length ?? 0) * 0.1
-        }} className="flex flex-col items-center gap-2 min-w-[80px] justify-center snap-start cursor-pointer group">
-            <div className="h-12 w-12 rounded-full border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-500 group-hover:border-cyan-500/50 group-hover:text-cyan-400 transition-all">
-              <span className="text-2xl font-light">+</span>
-            </div>
-            <p className="text-[10px] text-slate-500 group-hover:text-cyan-400 transition-colors">
-              Add Athlete
-            </p>
-          </motion.div>
+          <Link to="/athletes" className="contents">
+            <motion.div initial={{
+            opacity: 0,
+            x: 20
+          }} animate={{
+            opacity: 1,
+            x: 0
+          }} transition={{
+            delay: 0.2 + (athletes?.length ?? 0) * 0.1
+          }} className="flex flex-col items-center gap-2 min-w-[80px] justify-center snap-start cursor-pointer group">
+              <div className="h-12 w-12 rounded-full border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-500 group-hover:border-cyan-500/50 group-hover:text-cyan-400 transition-all">
+                <span className="text-2xl font-light">+</span>
+              </div>
+              <p className="text-[10px] text-slate-500 group-hover:text-cyan-400 transition-colors">
+                Add Athlete
+              </p>
+            </motion.div>
+          </Link>
         </div>
       </CardContent>
     </Card>;

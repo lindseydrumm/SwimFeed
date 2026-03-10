@@ -1,4 +1,4 @@
-import { apiGet } from "./client";
+import { apiGet, apiPost } from './client';
 
 export type Athlete = {
   id: number;
@@ -15,11 +15,38 @@ export type Athlete = {
   img?: string | null;
 };
 
-export function getAthletes() {
-  return apiGet<Athlete[]>("/athletes");
+export interface AthletesResponse {
+  athletes: Athlete[];
+  total: number;
+}
+
+export interface AthleteSearchParams {
+  q?: string;
+  country?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export function getAthletes(params: AthleteSearchParams = {}) {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.country) qs.set('country', params.country);
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.offset != null) qs.set('offset', String(params.offset));
+  const query = qs.toString();
+  return apiGet<AthletesResponse>(`/athletes${query ? `?${query}` : ''}`);
 }
 
 export function getAthlete(slug: string) {
   return apiGet<Athlete>(`/athletes/${slug}`);
+}
+
+export function getAthleteCountries() {
+  return apiGet<string[]>('/athletes/countries');
+}
+
+export function getAthletesBySlug(slugs: string[]) {
+  if (slugs.length === 0) return Promise.resolve([]);
+  return apiPost<Athlete[]>('/athletes/batch', { slugs });
 }
 

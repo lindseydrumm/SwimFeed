@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
@@ -150,12 +152,72 @@ def ingest_athlete(athlete: AthleteIn):
         conn.execute(query, payload)
 
 
+class AthleteBatchIn(BaseModel):
+    slugs: list[str]
+
+
 @app.get("/athletes")
-def list_athletes():
-    query = text("SELECT * FROM athletes ORDER BY name ASC")
+def list_athletes(
+    q: Optional[str] = Query(None, description="Case-insensitive name search"),
+    country: Optional[str] = Query(None, description="Exact country code filter"),
+    limit: int = Query(40, ge=1, le=100, description="Page size"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+):
+    conditions: list[str] = []
+    params: dict = {"limit": limit, "offset": offset}
+
+    if q:
+        conditions.append("name ILIKE :q")
+        params["q"] = f"%{q}%"
+    if country:
+        conditions.append("country = :country")
+        params["country"] = country
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    count_query = text(f"SELECT COUNT(*) FROM athletes {where}")
+    data_query = text(
+        f"SELECT * FROM athletes {where} ORDER BY name ASC LIMIT :limit OFFSET :offset"
+    )
+
+    with engine.begin() as conn:
+        total = conn.execute(count_query, params).scalar()
+        rows = conn.execute(data_query, params).mappings().all()
+
+    return {"athletes": rows, "total": total}
+
+
+@app.get("/athletes/countries")
+def list_athlete_countries():
+    """Return the top 20 most common country codes."""
+    query = text(
+        """
+        SELECT country, COUNT(*) AS cnt
+        FROM athletes
+        WHERE country IS NOT NULL AND country != ''
+        GROUP BY country
+        ORDER BY cnt DESC
+        LIMIT 20
+        """
+    )
     with engine.begin() as conn:
         rows = conn.execute(query).mappings().all()
+    return [row["country"] for row in rows]
 
+
+@app.post("/athletes/batch")
+def batch_athletes(body: AthleteBatchIn):
+    """Return athletes matching a list of slugs."""
+    if not body.slugs:
+        return []
+    # Build parameterised IN clause
+    placeholders = ", ".join([f":s{i}" for i in range(len(body.slugs))])
+    params = {f"s{i}": s for i, s in enumerate(body.slugs)}
+    query = text(
+        f"SELECT * FROM athletes WHERE slug IN ({placeholders}) ORDER BY name ASC"
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(query, params).mappings().all()
     return rows
 
 

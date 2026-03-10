@@ -14,14 +14,14 @@ import { useUser } from '../src/store/UserStore';
 
 const headerItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
-  { name: 'Athletes', icon: Activity, path: '/athletes/leon-marchand' },
+  { name: 'Athletes', icon: Activity, path: '/athletes', end: true },
   { name: 'Events', icon: Medal, path: '/events', end: true },
   { name: 'Explore', icon: Compass, path: '/explore', end: true },
 ];
 
 const sidebarItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
-  { name: 'Athletes', icon: Activity, path: '/athletes/leon-marchand' },
+  { name: 'Athletes', icon: Activity, path: '/athletes', end: true },
   { name: 'Events', icon: Medal, path: '/events', end: true },
   { name: 'Explore', icon: Compass, path: '/explore', end: true },
   { name: 'Storylines', icon: BookOpen, path: '/storylines', end: true },
