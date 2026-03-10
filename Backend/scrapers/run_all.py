@@ -5,6 +5,7 @@
 from scrapers.rss_scrape import main as rss_main
 from scrapers.wa_events_scrape import main as wa_events_main
 from scrapers.usaswim_events_scrape import main as usaswim_events_main
+from scrapers.athletes_scrape import main as athletes_main
 
 
 def main():
@@ -16,6 +17,9 @@ def main():
 
     print("\n=== Running USA Swimming Events scraper ===")
     usaswim_events_main()
+
+    print("\n=== Running Athletes scraper ===")
+    athletes_main()
 
     print("\n=== All scrapers finished ===")
 
