@@ -5,6 +5,7 @@ import sys
 import feedparser
 import requests
 from datetime import datetime
+from tqdm import tqdm
 
 # import environmental vars
 from config import settings
@@ -27,9 +28,7 @@ SOURCES = [
 
 
 def main():
-    for s in SOURCES:
-        print(f"Fetching from {s['source']}...")
-
+    for s in tqdm(SOURCES, desc="Fetching sources", unit="Source"):
         feed = feedparser.parse(s["feed_url"])
 
         for entry in feed.entries:
