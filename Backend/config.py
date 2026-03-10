@@ -20,9 +20,6 @@ class Settings(BaseSettings):
     app_name: str = "Swim Live Backend"
     debug: bool = True
 
-    # CORS Configuration (comma-separated origins)
-    allowed_origins: str = "http://localhost:5173"
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
