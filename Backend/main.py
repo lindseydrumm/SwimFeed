@@ -149,13 +149,16 @@ def ingest_event(event: EventIn):
 @app.get("/athletes")
 def list_athletes():
     query = text("SELECT * FROM athletes ORDER BY name ASC")
+    with engine.begin() as conn:
+        rows = conn.execute(query).mappings().all()
+    return rows
+
+
 @app.get("/events")
 def list_events():
     query = text("SELECT * FROM events ORDER BY date_from ASC")
-
     with engine.begin() as conn:
         rows = conn.execute(query).mappings().all()
-
     return rows
 
 

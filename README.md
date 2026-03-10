@@ -49,7 +49,7 @@ This will:
 
 The API is available at:
 ```
-hyyp://localhost:8000
+http://localhost:8000
 ```
 
 To run a backend script:

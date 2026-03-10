@@ -1,20 +1,30 @@
 """
 scrape_athletes.py
 
-Seed the athletes table by gathering swimmer metadata from multiple sources
-and POSTing to the FastAPI backend at /ingest/athlete.
+Seed the athletes table by scraping sources and POSTing to the backend.
 
-This script now performs real HTTP requests to remote sites and attempts to
-parse athlete information. If a given source fails (layout change, network
-error), it is skipped so the rest of the pipeline still works.
+- Run from host: cd Backend && uv run scrape_athletes.py (uses localhost:8000)
+- Run via docker exec: uses host.docker.internal:8000 to reach backend via published port
+- Override: API_BASE_URL=http://... uv run scrape_athletes.py
 """
 
 from __future__ import annotations
 
+import os
 import requests
 from bs4 import BeautifulSoup
 
-API_URL = "http://127.0.0.1:8000/ingest/athlete"
+
+def _api_base() -> str:
+    if os.environ.get("API_BASE_URL"):
+        return os.environ.get("API_BASE_URL", "").rstrip("/")
+    if os.path.exists("/.dockerenv"):
+        return "http://host.docker.internal:8000"
+    return "http://localhost:8000"
+
+
+API_BASE_URL = _api_base()
+API_URL = f"{API_BASE_URL}/ingest/athlete"
 
 
 def slugify(name: str) -> str:
@@ -38,51 +48,50 @@ def ingest(payload: dict, label: str) -> None:
 
 def scrape_worldaquatics_featured() -> list[dict]:
     """
-    Scrape a featured athletes list from World Aquatics.
-
-    This targets a generic pattern of athlete cards linking to /athletes/.
-    The exact selectors may need adjustment over time, but the code is
-    defensive: if nothing matches, it simply returns an empty list.
+    Fetch athletes from World Aquatics API (the HTML page loads data via JS).
     """
-    url = "https://www.worldaquatics.com/athletes"
+    base_url = "https://api.worldaquatics.com/fina/athletes"
     label = "worldaquatics_featured"
-    try:
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-    except Exception as exc:  # noqa: BLE001
-        print(f"[{label}] Failed to fetch {url}: {exc}")
-        return []
-
-    soup = BeautifulSoup(resp.text, "html.parser")
     athletes: list[dict] = []
+    seen: set[str] = set()
 
-    # Heuristic: links that look like athlete profiles.
-    for link in soup.select("a[href*='/athletes/']")[:20]:
-        name = link.get_text(strip=True)
-        if not name:
-            continue
+    for page in range(1, 4):  # first 3 pages
+        try:
+            resp = requests.get(
+                base_url,
+                params={"pageSize": 100, "page": page},
+                headers={"Accept": "application/json"},
+                timeout=20,
+            )
+            resp.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[{label}] Failed page {page}: {exc}")
+            break
 
-        country = None
-        country_el = link.find_next("span")
-        if country_el:
-            text = country_el.get_text(strip=True)
-            if text and len(text) <= 3:
-                country = text
+        data = resp.json()
+        for entry in data.get("content") or []:
+            name = (entry.get("fullName") or "").strip()
+            if not name:
+                continue
+            if entry.get("disciplines") and "SW" not in entry.get("disciplines", []):
+                continue
+            slug = slugify(name)
+            if slug in seen:
+                continue
+            seen.add(slug)
+            athletes.append({
+                "slug": slug,
+                "name": name,
+                "country": (entry.get("nationality") or "").strip() or None,
+                "flag": None,
+                "strokes": None,
+                "bio": None,
+                "medals": None,
+                "world_records": None,
+                "world_rank": None,
+            })
 
-        payload = {
-            "slug": slugify(name),
-            "name": name,
-            "country": country,
-            "flag": None,
-            "strokes": None,
-            "bio": None,
-            "medals": None,
-            "world_records": None,
-            "world_rank": None,
-        }
-        athletes.append(payload)
-
-    print(f"[{label}] Parsed {len(athletes)} athletes from {url}")
+    print(f"[{label}] Parsed {len(athletes)} athletes from {base_url}")
     return athletes
 
 
@@ -109,31 +118,11 @@ def scrape_usaswimming_spotlight() -> list[dict]:
     # We further filter for things that look like \"First Last\" or \"First M Last\"
     # and avoid generic nav / section labels.
     STOP_WORDS = {
-        "Home",
-        "Events",
-        "Tickets",
-        "Shop",
-        "Resources",
-        "Parents",
-        "Times",
-        "Standards",
-        "Records",
-        "Results",
-        "Information",
-        "Coaches",
-        "Officials",
-        "Summit",
-        "Governance",
-        "Services",
-        "Programs",
-        "Team",
-        "Club",
-        "Database",
-        "Archive",
-        "Recognition",
-        "Incentive",
-        "Login",
-        "Register",
+        "Home", "Events", "Tickets", "Shop", "Resources", "Parents", "Times",
+        "Standards", "Records", "Results", "Information", "Coaches", "Officials",
+        "Summit", "Governance", "Services", "Programs", "Team", "Club", "Database",
+        "Archive", "Recognition", "Incentive", "Login", "Register",
+        "Safe", "Sport", "View", "Directory", "Contact", "Policy", "Privacy",
     }
 
     for el in soup.select("a, div"):

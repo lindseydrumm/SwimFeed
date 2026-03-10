@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     """Application settings with type validation."""
 
     # Database Configuration
-    database_url: str = "postgresql+psycopg2://dev:dev@localhost:5432/swimlive"
+    # Default "db" = Docker service name; for local runs set DATABASE_URL=...@localhost:5432/...
+    database_url: str = "postgresql+psycopg2://dev:dev@db:5432/swimlive"
 
     # Scraper Configuration
     feed_url: str = "https://swimswam.com/feed/"
