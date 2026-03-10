@@ -14,4 +14,4 @@ RUN uv sync --frozen
 # Copy the rest of the code
 COPY . .
 
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
+CMD ["uv", "run", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0"]
