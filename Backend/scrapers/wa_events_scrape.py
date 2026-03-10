@@ -40,7 +40,7 @@ def scrape_all(start, end):
     return events
 
 
-if __name__ == "__main__":
+def main():
     events = scrape_all("2026-01-01T00:00:00+00:00", "2027-01-01T00:00:00+00:00")
 
     print(f"Fetched {len(events)} events from World Aquatics")
@@ -61,3 +61,7 @@ if __name__ == "__main__":
         response = requests.post(settings.event_api_url, json=event)
 
         print(f"  {event['name']} ({event['city']}) -> {response.status_code}")
+
+
+if __name__ == "__main__":
+    main()

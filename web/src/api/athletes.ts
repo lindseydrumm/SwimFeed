@@ -2,6 +2,7 @@ import { apiGet } from "./client";
 
 export type Athlete = {
   id: number;
+  external_id: number;
   slug: string;
   name: string;
   country?: string | null;
@@ -11,6 +12,7 @@ export type Athlete = {
   medals?: number | null;
   world_records?: number | null;
   world_rank?: number | null;
+  img?: string | null;
 };
 
 export function getAthletes() {

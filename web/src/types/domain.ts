@@ -105,3 +105,17 @@ export interface Article {
   summary: string | null;
   source: string;
 }
+
+// --- Event (from API / World Aquatics scraper) ---
+export interface SwimEvent {
+  id?: number;
+  external_id: number;
+  name: string;
+  date_from: string | null;
+  date_to: string | null;
+  city: string | null;
+  country: string | null;
+  country_code: string | null;
+  competition_type: string | null;
+  disciplines: string | null;
+}

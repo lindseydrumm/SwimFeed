@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: swimlive
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker-init/init_tables.sql:/docker-entrypoint-initdb.d/init_tables.sql:ro
     ports:
       - "5432:5432"
 

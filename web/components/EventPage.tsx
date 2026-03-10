@@ -1,307 +1,260 @@
 //
-// EventPage.tsx – event detail page (schedule, broadcast, storylines).
-// Styled to match project-swim-live (dark theme, Card/Badge from ui).
+// EventPage.tsx – browsable list of all competitions from the API.
+// Each card links to /events/:id for the detail view.
 //
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Card, CardContent } from './ui/Card';
 import { Badge } from './ui/Badge';
 import {
   MapPin,
   Calendar,
   Trophy,
-  ChevronDown,
-  Clock,
-  Tv,
-  Globe,
+  AlertCircle,
+  Loader2,
+  ChevronRight,
 } from 'lucide-react';
-import { FollowButton } from './FollowButton';
+import { getEvents } from '../src/api/events';
+import type { SwimEvent } from '../src/types/domain';
 
-const scheduleData = [
-  { day: 'Day 1', date: 'July 14', events: ['100m Freestyle Prelims', '200m Butterfly Prelims', '400m IM Finals'] },
-  { day: 'Day 2', date: 'July 15', events: ['100m Backstroke Prelims', '200m Freestyle Finals', '100m Breaststroke Finals'] },
-  { day: 'Day 3', date: 'July 16', events: ['50m Freestyle Splash-and-Dash', '4x100m Relay', '1500m Freestyle Finals'] },
-];
+// --- Helpers ---
 
-const broadcastData = [
-  { session: 'Morning Heats', time: '10:00 AM AST', localTime: '2:00 AM ET · 7:00 AM GMT', platform: 'Peacock', region: 'US' },
-  { session: 'Evening Finals', time: '6:00 PM AST', localTime: '10:00 AM ET · 3:00 PM GMT', platform: 'NBC', region: 'US' },
-  { session: 'Full Coverage', time: 'All Sessions', localTime: 'Live & Replay', platform: 'World Aquatics+', region: 'Global' },
-];
+function formatDateRange(from: string | null, to: string | null): string {
+  if (!from) return 'Date TBD';
+  const start = new Date(from);
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+  const startStr = start.toLocaleDateString('en-US', opts);
+  if (!to) return startStr;
+  const end = new Date(to);
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.getDate()}, ${end.getFullYear()}`;
+  }
+  return `${startStr} - ${end.toLocaleDateString('en-US', opts)}`;
+}
 
-const EVENT_ID = 'worlds-2025';
-const EVENT_NAME = 'World Aquatics Championships';
+function locationString(event: SwimEvent): string {
+  const parts: string[] = [];
+  if (event.city) parts.push(event.city);
+  if (event.country) parts.push(event.country);
+  return parts.join(', ') || 'Location TBD';
+}
+
+function isUpcoming(event: SwimEvent): boolean {
+  if (!event.date_from) return false;
+  return new Date(event.date_from).getTime() > Date.now();
+}
+
+function isPast(event: SwimEvent): boolean {
+  if (!event.date_to && !event.date_from) return false;
+  const end = event.date_to ?? event.date_from;
+  return new Date(end!).getTime() < Date.now();
+}
 
 export function EventPage() {
-  const [expandedDay, setExpandedDay] = useState<number | null>(0);
+  const [events, setEvents] = useState<SwimEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getEvents()
+      .then((data) => {
+        if (!cancelled) {
+          setEvents(data);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load events');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const upcoming = events.filter(isUpcoming);
+  const past = events.filter(isPast);
 
   return (
-    <div className="max-w-3xl mx-auto pb-12 space-y-12">
-      {/* Hero Section */}
+    <div className="max-w-3xl mx-auto pb-12 space-y-10">
+      {/* Page Header */}
       <div className="text-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          <Badge variant="accent" className="mb-4">
-            Upcoming Major
-          </Badge>
-        </motion.div>
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-4xl md:text-5xl font-light text-white mb-6 tracking-tight"
+          className="text-4xl md:text-5xl font-light text-white mb-3 tracking-tight"
         >
-          World Aquatics Championships
+          Events
         </motion.h1>
-        <motion.div
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="flex flex-wrap justify-center gap-6 text-slate-400 font-light mb-6"
+          transition={{ delay: 0.2 }}
+          className="text-slate-400 font-light"
         >
-          <span className="flex items-center">
-            <Calendar className="w-4 h-4 mr-2 text-cyan-400" />
-            Feb 2 - 18, 2024
-          </span>
-          <span className="flex items-center">
-            <MapPin className="w-4 h-4 mr-2 text-cyan-400" />
-            Doha, Qatar
-          </span>
-          <span className="flex items-center">
-            <Trophy className="w-4 h-4 mr-2 text-cyan-400" />
-            Long Course (50m)
-          </span>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.42 }}
-        >
-          <FollowButton
-            entityType="event"
-            entityId={EVENT_ID}
-            name={EVENT_NAME}
-            label="Follow Event"
-            followingLabel="Following Event"
-          />
-        </motion.div>
+          Competitions from World Aquatics
+        </motion.p>
       </div>
 
-      {/* Broadcast & Start Times */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
-      >
-        <Card className="p-0 overflow-hidden border-cyan-500/30" animate={false}>
-          <div className="bg-cyan-600/80 px-6 py-3 flex items-center gap-2">
-            <Tv className="w-4 h-4 text-white" />
-            <h2 className="text-sm font-medium text-white tracking-wide">
-              How to Watch
-            </h2>
-          </div>
-          <div className="divide-y divide-slate-700">
-            {broadcastData.map((item, i) => (
-              <div
-                key={i}
-                className="px-6 py-4 flex items-center justify-between gap-4"
-              >
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-slate-200 text-sm">
-                    {item.session}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Clock className="w-3 h-3 text-cyan-400 shrink-0" />
-                    <span className="text-xs text-slate-400">{item.time}</span>
-                    <span className="text-slate-500 text-xs">·</span>
-                    <span className="text-xs text-slate-500">{item.localTime}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge variant="accent" className="text-[11px] px-2.5 py-0.5 font-medium">
-                    {item.platform}
-                  </Badge>
-                  <div className="flex items-center gap-1 text-slate-500">
-                    <Globe className="w-3 h-3" />
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
-                      {item.region}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </motion.section>
+      {/* Loading State */}
+      {loading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+        </div>
+      )}
 
-      {/* About This Event */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <h2 className="text-xl font-light text-white mb-4 px-2">
-          About This Event
-        </h2>
-        <Card animate={false}>
-          <CardContent>
-            <div className="space-y-4 text-slate-400 font-light leading-relaxed">
-              <p>
-                The World Aquatics Championships are the world championships for
-                six aquatic disciplines: swimming, water polo, diving, artistic
-                swimming, open water swimming, and high diving.
-              </p>
-              <p>
-                This year&apos;s event in Doha is particularly significant as it serves
-                as a primary qualification opportunity for the upcoming Summer
-                Olympics. Athletes are not just racing for medals, but for their
-                spots on the world&apos;s biggest stage, adding an extra layer of
-                intensity to every heat.
-              </p>
-            </div>
+      {/* Error State */}
+      {!loading && error && (
+        <Card className="border-red-500/20">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm mb-3">Unable to load events.</p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                getEvents()
+                  .then(setEvents)
+                  .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load events'))
+                  .finally(() => setLoading(false));
+              }}
+              className="text-sm text-cyan-400 hover:text-cyan-300 underline"
+            >
+              Retry
+            </button>
           </CardContent>
         </Card>
-      </motion.section>
+      )}
 
-      {/* Storylines to Watch */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <h2 className="text-xl font-light text-white mb-4 px-2">
-          Storylines to Watch
-        </h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card animate={false} className="hover:border-cyan-500/30 transition-colors">
-            <CardContent className="p-5">
-              <h3 className="font-medium text-slate-200 mb-2">
-                Ledecky vs. Titmus
-              </h3>
-              <p className="text-sm text-slate-500 font-light leading-relaxed">
-                The distance rivalry continues. Can Titmus defend her 400m title,
-                or will Ledecky reclaim her dominance in the middle distance?
-              </p>
-            </CardContent>
-          </Card>
-          <Card animate={false} className="hover:border-cyan-500/30 transition-colors">
-            <CardContent className="p-5">
-              <h3 className="font-medium text-slate-200 mb-2">
-                Popovici&apos;s Sprint Dominance
-              </h3>
-              <p className="text-sm text-slate-500 font-light leading-relaxed">
-                After shattering the 100m freestyle world record, all eyes are on
-                the young Romanian to see if he can go even faster.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </motion.section>
+      {/* Empty State */}
+      {!loading && !error && events.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Calendar className="h-8 w-8 text-slate-500 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm">
+              No events found. Run the event scraper to populate data.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Featured Swimmers */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-      >
-        <h2 className="text-xl font-light text-white mb-4 px-2">
-          Featured Swimmers
-        </h2>
-        <div className="space-y-3">
-          {[
-            { name: 'Katie Ledecky', country: 'USA', context: 'Defending champion in 800m and 1500m freestyle.' },
-            { name: 'David Popovici', country: 'ROU', context: 'Current world record holder in 100m freestyle.' },
-            { name: 'Ariarne Titmus', country: 'AUS', context: 'Olympic champion looking to defend her titles.' },
-            { name: 'Caeleb Dressel', country: 'USA', context: 'Returning to international competition.' },
-          ].map((swimmer, i) => (
-            <Card key={i} animate={false} className="hover:border-cyan-500/30 transition-colors">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-slate-300 shrink-0">
-                  {swimmer.name.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="font-medium text-slate-200">{swimmer.name}</h3>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      {swimmer.country}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-slate-500 font-light">
-                    {swimmer.context}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.section>
+      {/* Upcoming Events */}
+      {!loading && upcoming.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <h2 className="text-xl font-light text-white mb-4 px-2 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-cyan-400" />
+            Upcoming
+            <Badge variant="accent" className="text-[10px] px-2 py-0.5">
+              {upcoming.length}
+            </Badge>
+          </h2>
+          <div className="space-y-3">
+            {upcoming.map((event, i) => (
+              <EventCard key={event.id ?? event.external_id} event={event} index={i} />
+            ))}
+          </div>
+        </motion.section>
+      )}
 
-      {/* Event Schedule */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <h2 className="text-xl font-light text-white mb-4 px-2">
-          Event Schedule
-        </h2>
-        <div className="space-y-3">
-          {scheduleData.map((item, index) => (
-            <Card
-              key={index}
-              animate={false}
-              className="overflow-hidden cursor-pointer hover:border-cyan-500/30 transition-colors"
-              onClick={() => setExpandedDay(expandedDay === index ? null : index)}
-            >
-              <div className="p-4 flex items-center justify-between bg-slate-800/50">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-medium text-sm">
-                    {item.date.split(' ')[1]}
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-slate-200">{item.day}</h3>
-                    <p className="text-xs text-slate-500">{item.date}</p>
-                  </div>
-                </div>
-                <motion.div
-                  animate={{ rotate: expandedDay === index ? 180 : 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
-                </motion.div>
-              </div>
-              <AnimatePresence>
-                {expandedDay === index && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                  >
-                    <div className="px-4 pb-4 pt-0 border-t border-slate-700 bg-slate-800/30">
-                      <ul className="space-y-3 mt-4">
-                        {item.events.map((event, i) => (
-                          <li
-                            key={i}
-                            className="flex items-center text-sm text-slate-400"
-                          >
-                            <Clock className="w-3 h-3 mr-3 text-cyan-400/80" />
-                            {event}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Card>
-          ))}
-        </div>
-      </motion.section>
+      {/* Past Events */}
+      {!loading && past.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <h2 className="text-xl font-light text-white mb-4 px-2 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-slate-500" />
+            Past Events
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+              {past.length}
+            </Badge>
+          </h2>
+          <div className="space-y-3">
+            {past.map((event, i) => (
+              <EventCard key={event.id ?? event.external_id} event={event} index={i} dimmed />
+            ))}
+          </div>
+        </motion.section>
+      )}
     </div>
+  );
+}
+
+// --- Event Card ---
+
+interface EventCardProps {
+  event: SwimEvent;
+  index: number;
+  dimmed?: boolean;
+}
+
+function EventCard({ event, index, dimmed }: EventCardProps) {
+  return (
+    <Link to={`/events/${event.id}`}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 * index }}
+      >
+        <Card
+          animate={false}
+          className={`hover:border-cyan-500/30 transition-colors cursor-pointer ${dimmed ? 'opacity-60' : ''}`}
+        >
+          <CardContent className="p-5 flex items-center gap-4">
+            {/* Date badge */}
+            {event.date_from && (
+              <div className="w-14 h-14 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex flex-col items-center justify-center text-cyan-400 shrink-0">
+                <span className="text-[10px] uppercase font-semibold leading-none">
+                  {new Date(event.date_from).toLocaleDateString('en-US', { month: 'short' })}
+                </span>
+                <span className="text-lg font-bold leading-tight">
+                  {new Date(event.date_from).getDate()}
+                </span>
+              </div>
+            )}
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-slate-200 mb-1 truncate">{event.name}</h3>
+              <div className="flex items-center gap-3 text-sm text-slate-500 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {locationString(event)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {formatDateRange(event.date_from, event.date_to)}
+                </span>
+              </div>
+              {(event.competition_type || event.disciplines) && (
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {event.competition_type && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {event.competition_type}
+                    </Badge>
+                  )}
+                  {event.disciplines && (
+                    <span className="text-[10px] text-slate-600">
+                      {event.disciplines}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Arrow */}
+            <ChevronRight className="w-5 h-5 text-slate-600 shrink-0" />
+          </CardContent>
+        </Card>
+      </motion.div>
+    </Link>
   );
 }

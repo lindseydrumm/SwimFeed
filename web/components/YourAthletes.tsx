@@ -31,7 +31,7 @@ export function YourAthletes() {
     (async () => {
       try {
         const data = await getAthletes();
-        setAthletes(data);
+        setAthletes(data ?? []);
       } catch {
         // If backend is down, keep empty; UI still renders "Add Athlete"
       }
@@ -47,7 +47,7 @@ export function YourAthletes() {
       </CardHeader>
       <CardContent className="pt-2">
         <div className="flex gap-6 overflow-x-auto pb-4 pt-2 scrollbar-hide snap-x">
-          {athletes.map((athlete, index) => <Link key={athlete.slug ?? athlete.name} to={`/athletes/${athlete.slug ?? 'leon-marchand'}`} className="contents">
+          {(athletes ?? []).map((athlete, index) => <Link key={athlete.slug ?? athlete.name} to={`/athletes/${athlete.slug ?? 'leon-marchand'}`} className="contents">
             <motion.div initial={{
           opacity: 0,
           x: 20
@@ -83,7 +83,7 @@ export function YourAthletes() {
           opacity: 1,
           x: 0
         }} transition={{
-          delay: 0.2 + athletes.length * 0.1
+          delay: 0.2 + (athletes?.length ?? 0) * 0.1
         }} className="flex flex-col items-center gap-2 min-w-[80px] justify-center snap-start cursor-pointer group">
             <div className="h-12 w-12 rounded-full border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-500 group-hover:border-cyan-500/50 group-hover:text-cyan-400 transition-all">
               <span className="text-2xl font-light">+</span>

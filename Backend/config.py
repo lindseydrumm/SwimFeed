@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://dev:dev@localhost:5432/swimlive"
 
     # Scraper Configuration
-    feed_url: str = "https://swimswam.com/feed/"
-    api_url: str = "http://localhost:8000/ingest/article"
+    article_api_url: str = "http://localhost:8000/ingest/article"
     event_api_url: str = "http://localhost:8000/ingest/event"
+    athlete_api_url: str = "http://localhost:8000/ingest/athlete"
 
     # Application Configuration
     app_name: str = "Swim Live Backend"
