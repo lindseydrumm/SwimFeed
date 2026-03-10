@@ -1,6 +1,7 @@
 import requests
 from tqdm import tqdm
 from config import settings
+from urllib.parse import quote
 
 BASE = "https://api.worldaquatics.com/fina/athletes"
 PHOTO_BASE = "https://api.worldaquatics.com/content/fina/photo/en/"
@@ -56,20 +57,32 @@ def country_code_to_flag(code: str | None) -> str | None:
 
 def fetch_photos(ids: list[int]) -> dict[int, str]:
     """Batch‑fetch photo URLs for a list of athlete IDs.
-    Returns a mapping of athlete ID -> imageUrl (or None if not found).
+    Returns a mapping of athlete ID -> imageUrl (or empty dict if the request fails).
     """
     if not ids:
         return {}
-    # Build referenceExpression like "FINA_ATHLETE:1307409" or combined with OR
+    # Build referenceExpression like "FINA_ATHLETE:1307409" combined with OR
+    # Use percent‑encoding ("%20") for spaces, matching the format that works in a browser.
     expr = " or ".join([f'"FINA_ATHLETE:{i}"' for i in ids])
+    # Manually percent‑encode the expression to avoid '+' for spaces.
+    encoded_expr = quote(expr, safe="")
     params = {
         "limit": 100,
         "tagNames": "athlete-image",
-        "referenceExpression": expr,
+        "referenceExpression": encoded_expr,
     }
-    r = requests.get(PHOTO_BASE, params=params, headers=HEADERS, timeout=20)
-    r.raise_for_status()
-    data = r.json()
+    try:
+        r = requests.get(PHOTO_BASE, params=params, headers=HEADERS, timeout=20)
+        # If the API returns a non‑200 status (e.g., 500), we treat it as no photos.
+        if r.status_code != 200:
+            tqdm.write(
+                f"[photo] Warning: photo API returned {r.status_code}. Skipping photos for this batch."
+            )
+            return {}
+        data = r.json()
+    except Exception as exc:
+        tqdm.write(f"[photo] Error fetching photos: {exc}. Continuing without photos.")
+        return {}
     result: dict[int, str] = {}
     for item in data.get("content", []):
         # Each item may have multiple references; we look for the athlete reference
@@ -89,13 +102,20 @@ def main():
     athletes = [a for a in athletes if a.get("fullName", "").strip()]
 
     # Process in batches to limit photo API requests
-    batch_size = 100
+    batch_size = 50  # Smaller batch to keep the photo‑API query length reasonable
     for i in tqdm(
         range(0, len(athletes), batch_size), desc="Processing batches", unit="batch"
     ):
         batch = athletes[i : i + batch_size]
         ids = [a["id"] for a in batch]
-        photo_map = fetch_photos(ids)
+        # Fetch photos – if the request fails we fall back to an empty dict
+        try:
+            photo_map = fetch_photos(ids)
+        except Exception as exc:  # safeguard – should never happen because fetch_photos has its own guard
+            tqdm.write(
+                f"[photo] Unexpected error: {exc}. Continuing without photos for this batch."
+            )
+            photo_map = {}
         for a in tqdm(batch, desc="Posting athletes", leave=False):
             payload = {
                 "external_id": a["id"],
@@ -109,10 +129,15 @@ def main():
                 "world_rank": None,
                 "img": photo_map.get(a["id"]),
             }
-            resp = requests.post(settings.athlete_api_url, json=payload, timeout=15)
-            print(
-                f"  {payload['name']} ({payload.get('country')}) -> {resp.status_code}"
-            )
+            try:
+                resp = requests.post(settings.athlete_api_url, json=payload, timeout=15)
+                status = resp.status_code
+            except Exception as exc:
+                tqdm.write(
+                    f"[ingest] Failed to POST athlete {payload.get('name')}: {exc}"
+                )
+                status = "error"
+            print(f"  {payload['name']} ({payload.get('country')}) -> {status}")
 
 
 if __name__ == "__main__":
