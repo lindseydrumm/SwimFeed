@@ -20,6 +20,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def slugify(name: str) -> str:
+    return (
+        name.lower()
+        .replace("'", "")
+        .replace(".", "")
+        .replace("é", "e")
+        .replace("è", "e")
+        .replace("ê", "e")
+        .replace("à", "a")
+        .replace(" ", "-")
+    )
+
+
 # engine
 engine = create_engine(settings.database_url)
 
@@ -35,6 +49,7 @@ def init_db() -> None:
                 CREATE TABLE IF NOT EXISTS athletes (
                     id SERIAL PRIMARY KEY,
                     slug TEXT UNIQUE NOT NULL,
+                    external_id INTEGER UNIQUE NOT NULL,
                     name TEXT NOT NULL,
                     country TEXT,
                     flag TEXT,
@@ -42,7 +57,8 @@ def init_db() -> None:
                     bio TEXT,
                     medals INTEGER,
                     world_records INTEGER,
-                    world_rank INTEGER
+                    world_rank INTEGER,
+                    img TEXT
                 );
                 """
             )
@@ -94,7 +110,7 @@ def list_articles():
 
 
 class AthleteIn(BaseModel):
-    slug: str
+    external_id: int
     name: str
     country: str | None = None
     flag: str | None = None
@@ -103,15 +119,21 @@ class AthleteIn(BaseModel):
     medals: int | None = None
     world_records: int | None = None
     world_rank: int | None = None
+    img: str | None = None
 
 
 @app.post("/ingest/athlete")
 def ingest_athlete(athlete: AthleteIn):
+    # Generate slug from name for URL-friendly lookup
+    slug = slugify(athlete.name)
+    payload = athlete.model_dump()
+    payload["slug"] = slug
     query = text(
         """
-        INSERT INTO athletes (slug, name, country, flag, strokes, bio, medals, world_records, world_rank)
-        VALUES (:slug, :name, :country, :flag, :strokes, :bio, :medals, :world_records, :world_rank)
-        ON CONFLICT (slug) DO UPDATE SET
+        INSERT INTO athletes (external_id, slug, name, country, flag, strokes, bio, medals, world_records, world_rank, img)
+        VALUES (:external_id, :slug, :name, :country, :flag, :strokes, :bio, :medals, :world_records, :world_rank, :img)
+        ON CONFLICT (external_id) DO UPDATE SET
+            slug = EXCLUDED.slug,
             name = EXCLUDED.name,
             country = EXCLUDED.country,
             flag = EXCLUDED.flag,
@@ -119,12 +141,13 @@ def ingest_athlete(athlete: AthleteIn):
             bio = EXCLUDED.bio,
             medals = EXCLUDED.medals,
             world_records = EXCLUDED.world_records,
-            world_rank = EXCLUDED.world_rank;
+            world_rank = EXCLUDED.world_rank,
+            img = EXCLUDED.img;
         """
     )
 
     with engine.begin() as conn:
-        conn.execute(query, athlete.model_dump())
+        conn.execute(query, payload)
 
 
 @app.get("/athletes")
