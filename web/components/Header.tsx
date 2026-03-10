@@ -79,7 +79,7 @@ export function Header() {
               <Waves className="h-6 w-6 text-cyan-400" />
             </div>
             <span className="text-xl font-bold text-white tracking-tight">
-              Swim<span className="text-cyan-400">Stats</span>
+              Swim<span className="text-cyan-400">Live</span>
             </span>
           </button>
 
