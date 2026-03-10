@@ -24,6 +24,7 @@ app.add_middleware(
 engine = create_engine(settings.database_url)
 
 
+# deprecated
 @app.on_event("startup")
 def init_db() -> None:
     """Ensure required tables exist."""
@@ -48,25 +49,17 @@ def init_db() -> None:
         )
 
 
-# article structure
+###################################
+# Articles
+###################################
+
+
 class ArticleIn(BaseModel):
     title: str
     url: str
     published_at: datetime | None
     summary: str | None
     source: str
-
-
-class AthleteIn(BaseModel):
-    slug: str
-    name: str
-    country: str | None = None
-    flag: str | None = None
-    strokes: str | None = None
-    bio: str | None = None
-    medals: int | None = None
-    world_records: int | None = None
-    world_rank: int | None = None
 
 
 @app.post("/ingest/article")
@@ -95,6 +88,23 @@ def list_articles():
     return rows
 
 
+###################################
+# Athletes
+###################################
+
+
+class AthleteIn(BaseModel):
+    slug: str
+    name: str
+    country: str | None = None
+    flag: str | None = None
+    strokes: str | None = None
+    bio: str | None = None
+    medals: int | None = None
+    world_records: int | None = None
+    world_rank: int | None = None
+
+
 @app.post("/ingest/athlete")
 def ingest_athlete(athlete: AthleteIn):
     query = text(
@@ -115,7 +125,35 @@ def ingest_athlete(athlete: AthleteIn):
 
     with engine.begin() as conn:
         conn.execute(query, athlete.model_dump())
-# event structure
+
+
+@app.get("/athletes")
+def list_athletes():
+    query = text("SELECT * FROM athletes ORDER BY name ASC")
+    with engine.begin() as conn:
+        rows = conn.execute(query).mappings().all()
+
+    return rows
+
+
+@app.get("/athletes/{slug}")
+def get_athlete(slug: str):
+    query = text("SELECT * FROM athletes WHERE slug = :slug")
+
+    with engine.begin() as conn:
+        row = conn.execute(query, {"slug": slug}).mappings().first()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    return row
+
+
+###################################
+# Events
+###################################
+
+
 class EventIn(BaseModel):
     external_id: int
     name: str
@@ -146,9 +184,6 @@ def ingest_event(event: EventIn):
     return {"status": "ok"}
 
 
-@app.get("/athletes")
-def list_athletes():
-    query = text("SELECT * FROM athletes ORDER BY name ASC")
 @app.get("/events")
 def list_events():
     query = text("SELECT * FROM events ORDER BY date_from ASC")
@@ -157,16 +192,3 @@ def list_events():
         rows = conn.execute(query).mappings().all()
 
     return rows
-
-
-@app.get("/athletes/{slug}")
-def get_athlete(slug: str):
-    query = text("SELECT * FROM athletes WHERE slug = :slug")
-
-    with engine.begin() as conn:
-        row = conn.execute(query, {"slug": slug}).mappings().first()
-
-    if row is None:
-        raise HTTPException(status_code=404, detail="Athlete not found")
-
-    return row
