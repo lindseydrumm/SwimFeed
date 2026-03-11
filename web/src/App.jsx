@@ -18,6 +18,7 @@ import { EventPage } from '../components/EventPage';
 import { EventDetailPage } from '../components/EventDetailPage';
 import { SwimmerPage } from '../components/SwimmerPage';
 import { AthletesPage } from '../components/AthletesPage';
+import { RecordsPage } from './routes/RecordsPage';
 
 function Layout() {
   const location = useLocation();
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/explore/:laneId" element={<ExploreLanePage />} />
             <Route path="/storylines" element={<StorylinesPage />} />
             <Route path="/storylines/:id" element={<StorylineDetailPage />} />
+            <Route path="/records" element={<RecordsPage />} />
             <Route path="/saved" element={<OnboardingGuard><SavedPage /></OnboardingGuard>} />
             <Route path="/learn" element={<OnboardingGuard><LearnPage /></OnboardingGuard>} />
             <Route path="/recap" element={<OnboardingGuard><RecapPage /></OnboardingGuard>} />
