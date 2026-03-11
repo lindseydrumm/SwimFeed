@@ -7,7 +7,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings } from 'lucide-react';
+import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings, Trophy } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import type { UserProfile } from '../src/types/domain';
 import { useUser } from '../src/store/UserStore';
@@ -25,6 +25,7 @@ const sidebarItems = [
   { name: 'Events', icon: Medal, path: '/events', end: true },
   { name: 'Explore', icon: Compass, path: '/explore', end: true },
   { name: 'Storylines', icon: BookOpen, path: '/storylines', end: true },
+  { name: 'Records', icon: Trophy, path: '/records', end: true },
   { name: 'Learn', icon: BookMarked, path: '/learn', end: true },
   { name: 'Saved', icon: Bookmark, path: '/saved', end: true },
   { name: 'Recap', icon: BarChart3, path: '/recap', end: true },
