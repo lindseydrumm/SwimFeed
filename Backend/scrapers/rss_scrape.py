@@ -44,9 +44,26 @@ def main():
                 "source": s["source"],
             }
 
-            response = requests.post(settings.article_api_url, json=article)
+            headers = {}
+            if settings.ingest_api_key:
+                headers["X-API-Key"] = settings.ingest_api_key
+            response = requests.post(
+                settings.article_api_url, json=article, headers=headers
+            )
 
-            print(f"[{s['source']}] {article['title']} -> {response.status_code}")
+            if response.status_code == 401:
+                print(
+                    f"[{s['source']}] {article['title']} -> 401 Unauthorized: "
+                    "API key is missing or incorrect. "
+                    "Check that INGEST_API_KEY in your .env matches the server."
+                )
+            elif response.status_code == 422:
+                print(
+                    f"[{s['source']}] {article['title']} -> 422 Validation Error: "
+                    f"{response.text[:200]}"
+                )
+            else:
+                print(f"[{s['source']}] {article['title']} -> {response.status_code}")
 
 
 if __name__ == "__main__":

@@ -130,14 +130,35 @@ def main():
                 "img": photo_map.get(a["id"]),
             }
             try:
-                resp = requests.post(settings.athlete_api_url, json=payload, timeout=15)
+                ingest_headers = {}
+                if settings.ingest_api_key:
+                    ingest_headers["X-API-Key"] = settings.ingest_api_key
+                resp = requests.post(
+                    settings.athlete_api_url,
+                    json=payload,
+                    headers=ingest_headers,
+                    timeout=15,
+                )
                 status = resp.status_code
             except Exception as exc:
                 tqdm.write(
                     f"[ingest] Failed to POST athlete {payload.get('name')}: {exc}"
                 )
                 status = "error"
-            print(f"  {payload['name']} ({payload.get('country')}) -> {status}")
+
+            if status == 401:
+                tqdm.write(
+                    f"[ingest] {payload['name']} -> 401 Unauthorized: "
+                    "API key is missing or incorrect. "
+                    "Check that INGEST_API_KEY in your .env matches the server."
+                )
+            elif status == 422:
+                tqdm.write(
+                    f"[ingest] {payload['name']} -> 422 Validation Error: "
+                    f"{resp.text[:200]}"
+                )
+            else:
+                print(f"  {payload['name']} ({payload.get('country')}) -> {status}")
 
 
 if __name__ == "__main__":

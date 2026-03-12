@@ -1,10 +1,10 @@
 from datetime import datetime
+from typing import Annotated, Optional
 
-from typing import Optional
-
-from fastapi import FastAPI, HTTPException, Query
+import bleach
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, text
 
 # import environmental variables
@@ -13,14 +13,30 @@ from config import settings
 # main app
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 
-# Allow cross-origin requests from the frontend
+# Allow cross-origin requests from configured origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.allowed_origins.split(",")],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# API-key authentication for ingestion endpoints
+# ---------------------------------------------------------------------------
+
+
+def verify_api_key(x_api_key: str | None = Header(None)) -> None:
+    """Require a valid X-API-Key header when INGEST_API_KEY is configured.
+
+    If the setting is empty (local dev default), authentication is skipped.
+    """
+    if not settings.ingest_api_key:
+        return  # auth disabled – local dev
+    if x_api_key != settings.ingest_api_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 def slugify(name: str) -> str:
@@ -92,14 +108,24 @@ def create_tables():
 
 
 class ArticleIn(BaseModel):
-    title: str
-    url: str
+    title: Annotated[str, Field(max_length=500)]
+    url: Annotated[str, Field(max_length=2000)]
     published_at: datetime | None
     summary: str | None
-    source: str
+    source: Annotated[str, Field(max_length=100)]
+
+    @field_validator("summary", mode="before")
+    @classmethod
+    def sanitize_summary(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        # Allow only <img> tags with src and alt attributes
+        return bleach.clean(
+            v, tags=["img"], attributes={"img": ["src", "alt"]}, strip=True
+        )
 
 
-@app.post("/ingest/article")
+@app.post("/ingest/article", dependencies=[Depends(verify_api_key)])
 def ingest_article(article: ArticleIn):
     query = text(
         """
@@ -132,18 +158,18 @@ def list_articles():
 
 class AthleteIn(BaseModel):
     external_id: int
-    name: str
-    country: str | None = None
-    flag: str | None = None
-    strokes: str | None = None
-    bio: str | None = None
+    name: Annotated[str, Field(max_length=200)]
+    country: Annotated[str | None, Field(max_length=10)] = None
+    flag: Annotated[str | None, Field(max_length=10)] = None
+    strokes: Annotated[str | None, Field(max_length=500)] = None
+    bio: Annotated[str | None, Field(max_length=5000)] = None
     medals: int | None = None
     world_records: int | None = None
     world_rank: int | None = None
-    img: str | None = None
+    img: Annotated[str | None, Field(max_length=2000)] = None
 
 
-@app.post("/ingest/athlete")
+@app.post("/ingest/athlete", dependencies=[Depends(verify_api_key)])
 def ingest_athlete(athlete: AthleteIn):
     # Generate slug from name for URL-friendly lookup
     slug = slugify(athlete.name)
@@ -260,17 +286,17 @@ def get_athlete(slug: str):
 
 class EventIn(BaseModel):
     external_id: int
-    name: str
+    name: Annotated[str, Field(max_length=300)]
     date_from: datetime | None
     date_to: datetime | None
-    city: str | None
-    country: str | None
-    country_code: str | None
-    competition_type: str | None
-    disciplines: str | None
+    city: Annotated[str | None, Field(max_length=100)] = None
+    country: Annotated[str | None, Field(max_length=100)] = None
+    country_code: Annotated[str | None, Field(max_length=10)] = None
+    competition_type: Annotated[str | None, Field(max_length=100)] = None
+    disciplines: Annotated[str | None, Field(max_length=500)] = None
 
 
-@app.post("/ingest/event")
+@app.post("/ingest/event", dependencies=[Depends(verify_api_key)])
 def ingest_event(event: EventIn):
     query = text("""
                  INSERT INTO events (external_id, name, date_from, date_to,
