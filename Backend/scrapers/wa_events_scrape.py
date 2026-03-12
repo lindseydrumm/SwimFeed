@@ -41,6 +41,10 @@ def scrape_all(start, end):
 
 
 def main():
+    from scrapers import print_ingest_info
+
+    print_ingest_info(settings.event_api_url)
+
     events = scrape_all("2026-01-01T00:00:00+00:00", "2027-01-01T00:00:00+00:00")
 
     print(f"Fetched {len(events)} events from World Aquatics")

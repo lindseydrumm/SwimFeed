@@ -28,6 +28,10 @@ SOURCES = [
 
 
 def main():
+    from scrapers import print_ingest_info
+
+    print_ingest_info(settings.article_api_url)
+
     for s in tqdm(SOURCES, desc="Fetching sources", unit="Source"):
         feed = feedparser.parse(s["feed_url"])
 

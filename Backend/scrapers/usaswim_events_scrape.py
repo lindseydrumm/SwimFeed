@@ -139,6 +139,10 @@ def scrape_events() -> list[dict]:
 
 
 def main():
+    from scrapers import print_ingest_info
+
+    print_ingest_info(settings.event_api_url)
+
     events = scrape_events()
     print(f"Scraped {len(events)} events from USA Swimming")
 
