@@ -159,20 +159,6 @@ npm run preview   # Preview production build locally
 
 ---
 
-## Running the Backend Locally (without Docker)
-
-If you prefer to run the backend outside of Docker, you'll need PostgreSQL running locally and [uv](https://docs.astral.sh/uv/) installed:
-
-```bash
-cd Backend
-uv sync --frozen
-uv run uvicorn main:app --reload
-```
-
-Make sure `DATABASE_URL` in your environment points to your local PostgreSQL instance (default: `postgresql+psycopg2://dev:dev@localhost:5432/swimlive`).
-
----
-
 ## Deployment
 
 The deployed application is available at: https://swimlive.onrender.com/
