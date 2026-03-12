@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     event_api_url: str = "http://localhost:8000/ingest/event"
     athlete_api_url: str = "http://localhost:8000/ingest/athlete"
 
+    # Security
+    ingest_api_key: str = (
+        ""  # If set, /ingest/* endpoints require this as X-API-Key header
+    )
+    cors_origins: str = "http://localhost:5173"  # Comma-separated allowed origins
+
     # Application Configuration
     app_name: str = "Swim Live Backend"
     debug: bool = True

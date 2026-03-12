@@ -58,9 +58,26 @@ def main():
             "disciplines": ",".join(e.get("disciplines", [])),
         }
 
-        response = requests.post(settings.event_api_url, json=event)
+        ingest_headers = {}
+        if settings.ingest_api_key:
+            ingest_headers["X-API-Key"] = settings.ingest_api_key
+        response = requests.post(
+            settings.event_api_url, json=event, headers=ingest_headers
+        )
 
-        print(f"  {event['name']} ({event['city']}) -> {response.status_code}")
+        if response.status_code == 401:
+            print(
+                f"  {event['name']} ({event['city']}) -> 401 Unauthorized: "
+                "API key is missing or incorrect. "
+                "Check that INGEST_API_KEY in your .env matches the server."
+            )
+        elif response.status_code == 422:
+            print(
+                f"  {event['name']} ({event['city']}) -> 422 Validation Error: "
+                f"{response.text[:200]}"
+            )
+        else:
+            print(f"  {event['name']} ({event['city']}) -> {response.status_code}")
 
 
 if __name__ == "__main__":
