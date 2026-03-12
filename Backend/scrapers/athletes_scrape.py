@@ -199,6 +199,10 @@ def scrape_usaswimming_spotlight() -> list[dict]:
 
 
 def main() -> None:
+    from scrapers import print_ingest_info
+
+    print_ingest_info(settings.athlete_api_url)
+
     sources = [
         ("worldaquatics_featured", scrape_worldaquatics_featured),
         ("usaswimming_spotlight", scrape_usaswimming_spotlight),
