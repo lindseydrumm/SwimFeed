@@ -14,7 +14,7 @@ from __future__ import annotations
 import requests
 from bs4 import BeautifulSoup
 
-API_URL = "http://127.0.0.1:8000/ingest/athlete"
+from config import settings
 
 
 def slugify(name: str) -> str:
@@ -32,8 +32,22 @@ def slugify(name: str) -> str:
 
 def ingest(payload: dict, label: str) -> None:
     print(f"[{label}] Ingesting {payload['name']}...")
-    resp = requests.post(API_URL, json=payload, timeout=15)
-    print(f"  -> {resp.status_code} {resp.text[:120]}")
+    headers = {}
+    if settings.ingest_api_key:
+        headers["X-API-Key"] = settings.ingest_api_key
+    resp = requests.post(
+        settings.athlete_api_url, json=payload, headers=headers, timeout=15
+    )
+
+    if resp.status_code == 401:
+        print(
+            f"  -> 401 Unauthorized: API key is missing or incorrect. "
+            "Check that INGEST_API_KEY in your .env matches the server."
+        )
+    elif resp.status_code == 422:
+        print(f"  -> 422 Validation Error: {resp.text[:200]}")
+    else:
+        print(f"  -> {resp.status_code} {resp.text[:120]}")
 
 
 def scrape_worldaquatics_featured() -> list[dict]:
@@ -203,4 +217,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
