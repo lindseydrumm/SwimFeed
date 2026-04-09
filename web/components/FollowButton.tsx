@@ -5,6 +5,7 @@ import React from 'react';
 import { Bell } from 'lucide-react';
 import type { FollowEntityType, FollowEntity } from '../src/types/domain';
 import { useUser } from '../src/store/UserStore';
+import { useGuestGate } from '../src/hooks/useGuestGate';
 
 interface FollowButtonProps {
   entityType: FollowEntityType;
@@ -26,14 +27,17 @@ export function FollowButton({
   className = '',
 }: FollowButtonProps) {
   const { isFollowing, follow, unfollow } = useUser();
+  const { requireAuth } = useGuestGate();
   const following = isFollowing(entityType, entityId);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const entity: FollowEntity = { id: entityId, type: entityType, name, meta };
-    if (following) unfollow(entityType, entityId);
-    else follow(entityType, entity);
+    requireAuth(() => {
+      const entity: FollowEntity = { id: entityId, type: entityType, name, meta };
+      if (following) unfollow(entityType, entityId);
+      else follow(entityType, entity);
+    });
   };
 
   return (
