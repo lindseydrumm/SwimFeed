@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     ingest_api_key: str = (
         ""  # If set, /ingest/* endpoints require this as X-API-Key header
     )
+    clerk_jwks_url: str = ""  # e.g. https://<your-clerk-domain>/.well-known/jwks.json
     cors_origins: str = "http://localhost:5173"  # Comma-separated allowed origins
 
     # Application Configuration

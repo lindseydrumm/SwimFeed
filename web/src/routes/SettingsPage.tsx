@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { useUser } from '../store/UserStore';
+import { useGuestGate } from '../hooks/useGuestGate';
 import type { DigestPreference } from '../types/domain';
 import { RotateCcw, Trash2 } from 'lucide-react';
 
@@ -17,16 +18,19 @@ const DIGEST_OPTIONS: { value: DigestPreference; label: string }[] = [
 export function SettingsPage() {
   const navigate = useNavigate();
   const { state, updateProfile, unfollow, resetProfile } = useUser();
-  const [displayName, setDisplayName] = useState(state?.profile?.displayName ?? 'Jordan');
+  const { isGuest, requireAuth } = useGuestGate();
+  const [displayName, setDisplayName] = useState(state?.profile?.displayName ?? '');
   const [digest, setDigest] = useState<DigestPreference>(state?.profile?.digestPreference ?? 'weekly');
 
   const handleSaveProfile = () => {
-    updateProfile({ displayName, digestPreference: digest });
+    requireAuth(() => updateProfile({ displayName, digestPreference: digest }));
   };
 
   const handleRestartOnboarding = async () => {
-    await resetProfile();
-    navigate('/onboarding', { replace: true });
+    requireAuth(async () => {
+      await resetProfile();
+      navigate('/onboarding', { replace: true });
+    });
   };
 
   const follows = state?.follows;
@@ -70,9 +74,9 @@ export function SettingsPage() {
           <button
             type="button"
             onClick={handleSaveProfile}
-            className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium"
+            className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium disabled:opacity-50"
           >
-            Save
+            {isGuest ? 'Sign in to save' : 'Save'}
           </button>
         </CardContent>
       </Card>
@@ -89,7 +93,7 @@ export function SettingsPage() {
                   <span className="text-slate-300 truncate">{e.name}</span>
                   <button
                     type="button"
-                    onClick={() => unfollow(e.type, e.id)}
+                    onClick={() => requireAuth(() => unfollow(e.type, e.id))}
                     className="text-slate-500 hover:text-red-400 text-sm shrink-0"
                   >
                     Unfollow

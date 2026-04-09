@@ -1,4 +1,22 @@
 -- docker-init/init_tables.sql
+-- --------------- users ------------------
+CREATE TABLE IF NOT EXISTS users (
+    id                  SERIAL PRIMARY KEY,
+    clerk_id            TEXT UNIQUE NOT NULL,
+    display_name        TEXT DEFAULT '',
+    goals               JSONB DEFAULT '[]',
+    interests           JSONB DEFAULT '{}',
+    digest_preference   TEXT DEFAULT 'daily',
+    onboarding_complete BOOLEAN DEFAULT FALSE,
+    follows             JSONB DEFAULT '{"athletes":[],"events":[],"topics":[],"storylines":[]}',
+    saved_articles      JSONB DEFAULT '[]',
+    seen_articles       JSONB DEFAULT '[]',
+    last_visit_at       TIMESTAMPTZ,
+    streak_count        INTEGER DEFAULT 0,
+    learn_completions   JSONB DEFAULT '[]',
+    created_at          TIMESTAMPTZ DEFAULT now(),
+    updated_at          TIMESTAMPTZ DEFAULT now()
+);
 -- --------------- athletes ---------------
 CREATE TABLE IF NOT EXISTS athletes (
     id            SERIAL PRIMARY KEY,
