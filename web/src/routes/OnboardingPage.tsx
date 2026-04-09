@@ -1,15 +1,18 @@
-/**
- * Onboarding wizard: 4 steps. Persists via useUser().completeOnboarding().
- */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { Stepper } from '../../components/Stepper';
 import { FollowButton } from '../../components/FollowButton';
 import { useUser } from '../store/UserStore';
 import type { OnboardingGoal, DigestPreference, UserProfile } from '../types/domain';
+
+const STROKES: { value: StrokePreference; label: string }[] = [
+    { value: 'butterfly', label: 'Butterfly' },
+    { value: 'backstroke', label: 'Backstroke' },
+    { value: 'breaststroke', label: 'Breaststroke' },
+    { value: 'freestyle', label: 'Freestyle' },
+];
 
 const GOALS: { value: OnboardingGoal; label: string }[] = [
   { value: 'news', label: 'News & stories' },
@@ -25,19 +28,6 @@ const INTEREST_CHIPS = {
   topics: ['Olympics', 'Worlds', 'NCAA', 'Technique', 'Records', 'Interviews'],
 };
 
-const RECOMMENDED_ATHLETES = [
-  { id: 'marchand', name: 'Léon Marchand', meta: { country: 'FRA' } },
-  { id: 'mcinintosh', name: 'Summer McIntosh', meta: { country: 'CAN' } },
-  { id: 'ledecky', name: 'Katie Ledecky', meta: { country: 'USA' } },
-  { id: 'dressel', name: 'Caeleb Dressel', meta: { country: 'USA' } },
-  { id: 'popovici', name: 'David Popovici', meta: { country: 'ROU' } },
-];
-
-const RECOMMENDED_EVENTS = [
-  { id: 'worlds-2025', name: 'World Aquatics Championships 2025', meta: {} },
-  { id: 'olympics-2024', name: 'Paris 2024 Olympics', meta: {} },
-];
-
 const DIGEST_OPTIONS: { value: DigestPreference; label: string }[] = [
   { value: 'daily', label: 'Daily digest' },
   { value: 'weekly', label: 'Weekly roundup' },
@@ -46,8 +36,11 @@ const DIGEST_OPTIONS: { value: DigestPreference; label: string }[] = [
 
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const { completeOnboarding, isFollowing } = useUser();
+  const { completeOnboarding } = useUser();
+
   const [step, setStep] = useState(0);
+  const [lane, setLane] = useState<'beginner' | 'experienced' | null>(null);
+
   const [displayName, setDisplayName] = useState('Jordan');
   const [goals, setGoals] = useState<OnboardingGoal[]>([]);
   const [interests, setInterests] = useState<Record<string, string[]>>({
@@ -57,9 +50,9 @@ export function OnboardingPage() {
     topics: [],
   });
   const [digestPreference, setDigestPreference] = useState<DigestPreference>('weekly');
+  const [strokePreference, setStrokePreference] = useState<StrokePreference[]>([])
 
-  const steps = ['Goals', 'Interests', 'Follow', 'Digest'];
-  const totalSteps = steps.length;
+  const steps = ['Welcome', 'Lane', ...(lane === 'experienced' ? ['Athletes', 'Events', 'Interests'] : ['Strokes', 'Learn']), 'Signup'];
 
   const toggleGoal = (g: OnboardingGoal) => {
     setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
@@ -77,12 +70,7 @@ export function OnboardingPage() {
     const profile: UserProfile = {
       displayName,
       goals,
-      interests: {
-        strokes: interests.strokes,
-        distances: interests.distances,
-        countries: interests.countries,
-        topics: interests.topics,
-      },
+      interests,
       digestPreference,
       onboardingComplete: true,
     };
@@ -93,180 +81,171 @@ export function OnboardingPage() {
   return (
     <div className="max-w-xl mx-auto py-8 px-4">
       <Stepper steps={steps} currentStep={step} className="mb-8" />
+
       <AnimatePresence mode="wait">
         {step === 0 && (
-          <motion.div
-            key="goals"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-semibold text-white">What do you want to follow?</h2>
-            <p className="text-slate-400 text-sm">Select at least one (you can change this later).</p>
-            <div className="flex flex-wrap gap-2">
-              {GOALS.map((g) => (
-                <button
-                  key={g.value}
-                  type="button"
-                  onClick={() => toggleGoal(g.value)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    goals.includes(g.value) ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  {g.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-end pt-4">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium"
-              >
-                Next
-              </button>
-            </div>
+          <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 text-center">
+            <h1 className="text-2xl font-semibold text-white">Welcome</h1>
+            <p className="text-slate-400">Let’s personalize your experience in a few quick steps.</p>
+            <button onClick={() => setStep(1)} className="px-6 py-3 bg-cyan-500 text-white rounded-lg">Get started</button>
           </motion.div>
         )}
 
-        {step === 1 && (
+      {/* LANE */}
+      {step === 1 && (
           <motion.div
-            key="interests"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
+            key="lane"
+            initial={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
+            animate={{ opacity: 1, clipPath: 'inset(0 0 0% 0)' }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="flex flex-col"
           >
-            <h2 className="text-xl font-semibold text-white">Your interests</h2>
-            <p className="text-slate-400 text-sm">Pick strokes, distances, and topics you care about.</p>
-            <div className="space-y-4">
-              {(Object.keys(INTEREST_CHIPS) as (keyof typeof INTEREST_CHIPS)[]).map((cat) => (
-                <div key={cat}>
-                  <p className="text-slate-500 text-xs uppercase mb-2">{cat}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {INTEREST_CHIPS[cat].map((val) => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => toggleInterest(cat, val)}
-                        className={`px-3 py-1.5 rounded-full text-sm ${
-                          (interests[cat] ?? []).includes(val) ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-slate-800 border border-slate-700 text-slate-400'
-                        }`}
-                      >
-                        {val}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-between pt-4">
-              <button type="button" onClick={() => setStep(0)} className="text-slate-400 hover:text-white text-sm">
-                Back
-              </button>
-              <button type="button" onClick={() => setStep(2)} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium">
-                Next
-              </button>
-            </div>
-          </motion.div>
+          <h2 className="text-xl font-semibold text-white text-center mb-8">Pick your lane</h2>
+
+          {/* Full-height lane container */}
+          <div className="flex flex-1 min-h-[78vh] border-t border-slate-700">
+            {/* BEGINNER */}
+            <button
+              onClick={() => {
+                setLane('beginner');
+                setStep(2);
+              }}
+              className={`flex-1 relative flex flex-col justify-end p-6 border-r border-slate-700 transition-all duration-300
+                ${lane === 'beginner' ? 'bg-cyan-500/10' : 'bg-transparent'}
+                hover:bg-cyan-500/10`}
+            >
+              {/* gradient to background */}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900 pointer-events-none" />
+
+              {/* pool "T" marker */}
+              {/* vertical part */}
+              <div className="absolute top-14 bottom-20 left-1/2 -translate-x-1/2 w-[10px] bg-slate-500/70 bg-gradient-to-b from-transparent to-slate-900" />
+              {/* horizontal part */}
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 w-20 h-[9px] bg-slate-500/70" />
+
+              {/* content */}
+              <div className="relative z-10 text-left text-top">
+                <p className="text-lg font-semibold text-white">Beginner</p>
+                <p className="text-sm text-slate-400 mt-1">New to swimming? Learn the basics and build confidence.</p>
+              </div>
+            </button>
+
+            {/* EXPERIENCED */}
+            <button
+              onClick={() => {
+                setLane('experienced');
+                setStep(2);
+              }}
+              className={`flex-1 relative flex flex-col justify-end p-6 transition-all duration-300
+                ${lane === 'experienced' ? 'bg-cyan-500/10' : 'bg-transparent'}
+                hover:bg-cyan-500/10`}
+            >
+              {/* gradient */}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900 pointer-events-none" />
+
+              {/* pool "T" marker */}
+              {/* vertical part */}
+              <div className="absolute top-14 bottom-20 left-1/2 -translate-x-1/2 w-[10px] bg-slate-500/70 bg-gradient-to-b from-transparent to-slate-900" />
+              {/* horizontal part */}
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 w-20 h-[9px] bg-slate-500/70" />
+
+
+              {/* content */}
+              <div className="relative z-10 text-left">
+                <p className="text-lg font-semibold text-white">Experienced</p>
+                <p className="text-sm text-slate-400 mt-1">Dive deeper with athletes, events, and insights.</p>
+              </div>
+            </button>
+          </div>
+        </motion.div>
         )}
 
-        {step === 2 && (
-          <motion.div
-            key="follow"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-semibold text-white">Follow athletes & events</h2>
-            <p className="text-slate-400 text-sm">We&apos;ll personalize your feed. You can add more later.</p>
-            <Card animate={false}>
-              <CardContent className="p-4 space-y-4">
-                <p className="text-slate-400 text-xs uppercase">Recommended athletes</p>
-                <div className="flex flex-col gap-3">
-                  {RECOMMENDED_ATHLETES.map((a) => (
-                    <div
-                      key={a.id}
-                      className="flex items-center justify-between gap-3 py-2 border-b border-slate-700/50 last:border-0"
-                    >
-                      <div>
-                        <p className="font-medium text-white">{a.name}</p>
-                        {a.meta?.country && (
-                          <p className="text-xs text-slate-500">{String(a.meta.country)}</p>
-                        )}
-                      </div>
-                      <FollowButton entityType="athlete" entityId={a.id} name={a.name} meta={a.meta} />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-slate-400 text-xs uppercase pt-4">Recommended events</p>
-                <div className="flex flex-col gap-3">
-                  {RECOMMENDED_EVENTS.map((e) => (
-                    <div
-                      key={e.id}
-                      className="flex items-center justify-between gap-3 py-2 border-b border-slate-700/50 last:border-0"
-                    >
-                      <p className="font-medium text-white">{e.name}</p>
-                      <FollowButton entityType="event" entityId={e.id} name={e.name} meta={e.meta} />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+
+        {/* EXPERIENCED FLOW */}
+        {lane === 'experienced' && step === 2 && (
+          <motion.div key="athletes" className="space-y-6">
+            <h2 className="text-xl text-white">Follow athletes</h2>
             <div className="flex justify-between pt-4">
               <button type="button" onClick={() => setStep(1)} className="text-slate-400 hover:text-white text-sm">
                 Back
               </button>
-              <button type="button" onClick={() => setStep(3)} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium">
-                Next
-              </button>
+              <button onClick={() => setStep(3)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
             </div>
           </motion.div>
         )}
 
-        {step === 3 && (
-          <motion.div
-            key="digest"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-semibold text-white">How often should we update you?</h2>
-            <p className="text-slate-400 text-sm">Digest preference (UI only for now).</p>
-            <div className="space-y-2">
-              {DIGEST_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setDigestPreference(opt.value)}
-                  className={`w-full px-4 py-3 rounded-lg text-left text-sm font-medium transition-colors ${
-                    digestPreference === opt.value ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-slate-800 border border-slate-700 text-slate-400'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div className="pt-2">
-              <label className="block text-slate-400 text-sm mb-1">Display name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white"
-              />
-            </div>
+        {lane === 'experienced' && step === 3 && (
+          <motion.div key="events" className="space-y-6">
+            <h2 className="text-xl text-white">Follow events</h2>
             <div className="flex justify-between pt-4">
               <button type="button" onClick={() => setStep(2)} className="text-slate-400 hover:text-white text-sm">
                 Back
               </button>
-              <button type="button" onClick={handleFinish} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium">
-                Finish
-              </button>
+              <button onClick={() => setStep(4)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
             </div>
+          </motion.div>
+        )}
+
+        {lane === 'experienced' && step === 4 && (
+          <motion.div key="interests" className="space-y-6">
+            <h2 className="text-xl text-white">Your interests</h2>
+            <div className="flex justify-between pt-4">
+              <button type="button" onClick={() => setStep(3)} className="text-slate-400 hover:text-white text-sm">
+                Back
+              </button>
+              <button onClick={() => setStep(5)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* BEGINNER FLOW */}
+        {lane === 'beginner' && step === 2 && (
+          <motion.div key="strokes" className="space-y-6">
+            <h2 className="text-xl text-white">Pick strokes</h2>
+            <div className="flex justify-between pt-4">
+              <button type="button" onClick={() => setStep(1)} className="text-slate-400 hover:text-white text-sm">
+                Back
+              </button>
+              <button onClick={() => setStep(3)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
+             </div>
+           </motion.div>
+        )}
+
+        {lane === 'beginner' && step === 3 && (
+          <motion.div key="learn" className="space-y-6">
+            <h2 className="text-xl text-white">What do you want to learn?</h2>
+            <div className="flex justify-between pt-4">
+              <button type="button" onClick={() => setStep(2)} className="text-slate-400 hover:text-white text-sm">
+                Back
+              </button>
+              <button onClick={() => setStep(4)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* SIGNUP (FINAL) */}
+        {((lane === 'experienced' && step === 5) || (lane === 'beginner' && step === 4)) && (
+          <motion.div key="signup" className="space-y-6">
+             <h2 className="text-xl text-white">Finish setup</h2>
+
+             {DIGEST_OPTIONS.map((opt) => (
+                <button key={opt.value} onClick={() => setDigestPreference(opt.value)} className="block w-full text-left p-3 bg-slate-800 rounded">
+                    {opt.label}
+                </button>
+             ))}
+
+             <input
+               value={displayName}
+               onChange={(e) => setDisplayName(e.target.value)}
+               className="w-full p-2 bg-slate-800 rounded"
+             />
+             <div className="flex justify-between pt-4">
+               <button type="button" onClick={() => setStep(4)} className="text-slate-400 hover:text-white text-sm">
+                 Back
+               </button>
+               <button onClick={handleFinish} className="bg-cyan-500 px-4 py-2 rounded">Finish</button>
+             </div>
           </motion.div>
         )}
       </AnimatePresence>
