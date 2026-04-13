@@ -13,13 +13,16 @@ import { UpcomingRaces } from '../../components/UpcomingRaces';
 import { NewsFeed } from '../../components/NewsFeed';
 import { RecentResults } from '../../components/RecentResults';
 import { FeaturedCarousel } from '../../components/FeaturedCarousel';
+import { AthleteInfoBar } from '../../components/AthleteInfoBar';
 import { exploreLanes } from '../data/lanes';
 import { Sparkles, Settings, Bookmark, Compass } from 'lucide-react';
+import type { Article } from '../types/domain';
 
 export function HomePage() {
   const { state, touchVisit, ready } = useUser();
   const { isGuest } = useGuestGate();
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
+  const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
 
   useEffect(() => {
     if (ready && !isGuest) touchVisit();
@@ -35,7 +38,6 @@ export function HomePage() {
   const savedCount = state?.contentState?.savedArticles?.length ?? 0;
   const streak = state?.activity?.streakCount ?? 0;
 
-  // Simulate "new since last visit" - in real app would compare article published_at to lastVisitAt
   useEffect(() => {
     if (lastVisit) setNewSinceCount(3);
     else setNewSinceCount(null);
@@ -47,8 +49,11 @@ export function HomePage() {
     <div className="space-y-8">
       {/* Featured carousel */}
       <section>
-        <FeaturedCarousel />
+        <FeaturedCarousel onArticleChange={setCurrentArticle} />
       </section>
+
+      {/* Athlete info bar */}
+      <AthleteInfoBar article={currentArticle} />
 
       {/* Personalized header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -61,9 +66,24 @@ export function HomePage() {
             <span>
               You&apos;re following{' '}
               <span className="text-cyan-400 font-semibold">{athleteCount} athletes</span>
-              {eventCount > 0 && <>, <span className="text-cyan-400 font-semibold">{eventCount} events</span></>}
-              {(topicCount + storylineCount) > 0 && <>, and <span className="text-cyan-400 font-semibold">{topicCount + storylineCount} topics/storylines</span></>}
-              {athleteCount === 0 && eventCount === 0 && topicCount === 0 && storylineCount === 0 && ' — add some in Explore or Settings'}
+              {eventCount > 0 && (
+                <>
+                  , <span className="text-cyan-400 font-semibold">{eventCount} events</span>
+                </>
+              )}
+              {(topicCount + storylineCount) > 0 && (
+                <>
+                  , and{' '}
+                  <span className="text-cyan-400 font-semibold">
+                    {topicCount + storylineCount} topics/storylines
+                  </span>
+                </>
+              )}
+              {athleteCount === 0 &&
+                eventCount === 0 &&
+                topicCount === 0 &&
+                storylineCount === 0 &&
+                ' — add some in Explore or Settings'}
               .
             </span>
             {streak > 0 && <StreakBadge count={streak} className="ml-1" />}
@@ -99,9 +119,15 @@ export function HomePage() {
         <Card animate={false} className="border-cyan-500/20">
           <CardContent className="p-4">
             <p className="text-sm text-slate-400">
-              <span className="text-white font-medium">New since {new Date(lastVisit).toLocaleDateString()}</span>
+              <span className="text-white font-medium">
+                New since {new Date(lastVisit).toLocaleDateString()}
+              </span>
               {newSinceCount != null && (
-                <> — <span className="text-cyan-400">{newSinceCount} articles</span> in your feed</>
+                <>
+                  {' '}
+                  — <span className="text-cyan-400">{newSinceCount} articles</span> in your
+                  feed
+                </>
               )}
             </p>
           </CardContent>
@@ -134,12 +160,19 @@ export function HomePage() {
         <SectionHeader
           title="Explore Next"
           subtitle="Pick a lane based on your interests"
-          action={<Link to="/explore" className="text-sm text-cyan-400 hover:text-cyan-300">See all</Link>}
+          action={
+            <Link to="/explore" className="text-sm text-cyan-400 hover:text-cyan-300">
+              See all
+            </Link>
+          }
         />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {suggestedLanes.map((lane) => (
             <Link key={lane.id} to={`/explore/${lane.id}`}>
-              <Card animate={false} className="h-full hover:border-cyan-500/30 transition-colors cursor-pointer overflow-hidden">
+              <Card
+                animate={false}
+                className="h-full hover:border-cyan-500/30 transition-colors cursor-pointer overflow-hidden"
+              >
                 <div className="aspect-video bg-slate-800 relative">
                   <img
                     src={`https://images.unsplash.com/photo-${lane.imageId}?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80`}
