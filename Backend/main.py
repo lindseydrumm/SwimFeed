@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 
 # import environmental variables
 from config import settings
@@ -412,6 +413,40 @@ def init_db() -> None:
                     world_rank INTEGER,
                     img TEXT
                 );
+                CREATE TABLE IF NOT EXISTS rankings (
+                    id              SERIAL PRIMARY KEY,
+                    athlete_ext_id  INTEGER NOT NULL,
+                    athlete_name    TEXT NOT NULL,
+                    country_code    TEXT,
+                    gender          TEXT NOT NULL,
+                    distance        INTEGER NOT NULL,
+                    stroke          TEXT NOT NULL,
+                    pool            TEXT NOT NULL,
+                    rank            INTEGER NOT NULL,
+                    time            TEXT NOT NULL,
+                    fina_points     REAL,
+                    event_name      TEXT,
+                    event_city      TEXT,
+                    result_date     TIMESTAMPTZ,
+                    ranking_type    TEXT NOT NULL DEFAULT 'alltime',
+                    UNIQUE (athlete_ext_id, gender, distance, stroke, pool, ranking_type)
+                );
+                CREATE TABLE IF NOT EXISTS records (
+                    id              SERIAL PRIMARY KEY,
+                    athlete_ext_id  INTEGER NOT NULL,
+                    athlete_name    TEXT NOT NULL,
+                    country_code    TEXT,
+                    gender          TEXT NOT NULL,
+                    distance        INTEGER NOT NULL,
+                    stroke          TEXT NOT NULL,
+                    pool            TEXT NOT NULL,
+                    time            TEXT NOT NULL,
+                    fina_points     REAL,
+                    event_name      TEXT,
+                    event_city      TEXT,
+                    result_date     TIMESTAMPTZ,
+                    UNIQUE (gender, distance, stroke, pool)
+                );
                 """
             )
         )
@@ -508,8 +543,15 @@ def ingest_athlete(athlete: AthleteIn):
         """
     )
 
-    with engine.begin() as conn:
-        conn.execute(query, payload)
+    try:
+        with engine.begin() as conn:
+            conn.execute(query, payload)
+    except IntegrityError:
+        # Slug collision: a different athlete with the same name already exists.
+        # Retry with the external_id appended to make the slug unique.
+        payload["slug"] = f"{slug}-{athlete.external_id}"
+        with engine.begin() as conn:
+            conn.execute(query, payload)
 
 
 class AthleteBatchIn(BaseModel):
@@ -636,4 +678,154 @@ def list_events():
     with engine.begin() as conn:
         rows = conn.execute(query).mappings().all()
 
+    return rows
+
+
+###################################
+# Rankings
+###################################
+
+
+class RankingIn(BaseModel):
+    athlete_ext_id: int
+    athlete_name: Annotated[str, Field(max_length=200)]
+    country_code: Annotated[str | None, Field(max_length=10)] = None
+    gender: Annotated[str, Field(max_length=2)]
+    distance: int
+    stroke: Annotated[str, Field(max_length=30)]
+    pool: Annotated[str, Field(max_length=5)]
+    rank: int
+    time: Annotated[str, Field(max_length=20)]
+    fina_points: float | None = None
+    event_name: Annotated[str | None, Field(max_length=500)] = None
+    event_city: Annotated[str | None, Field(max_length=200)] = None
+    result_date: datetime | None = None
+    ranking_type: Annotated[str, Field(max_length=20)] = "alltime"
+
+
+@app.post("/ingest/ranking", dependencies=[Depends(verify_api_key)])
+def ingest_ranking(ranking: RankingIn):
+    query = text(
+        """
+        INSERT INTO rankings (athlete_ext_id, athlete_name, country_code, gender,
+                              distance, stroke, pool, rank, time, fina_points,
+                              event_name, event_city, result_date, ranking_type)
+        VALUES (:athlete_ext_id, :athlete_name, :country_code, :gender,
+                :distance, :stroke, :pool, :rank, :time, :fina_points,
+                :event_name, :event_city, :result_date, :ranking_type)
+        ON CONFLICT (athlete_ext_id, gender, distance, stroke, pool, ranking_type) DO UPDATE SET
+            athlete_name = EXCLUDED.athlete_name,
+            country_code = EXCLUDED.country_code,
+            rank = EXCLUDED.rank,
+            time = EXCLUDED.time,
+            fina_points = EXCLUDED.fina_points,
+            event_name = EXCLUDED.event_name,
+            event_city = EXCLUDED.event_city,
+            result_date = EXCLUDED.result_date;
+        """
+    )
+    with engine.begin() as conn:
+        conn.execute(query, ranking.model_dump())
+    return {"status": "ok"}
+
+
+@app.get("/rankings")
+def list_rankings(
+    gender: Optional[str] = Query(None),
+    stroke: Optional[str] = Query(None),
+    distance: Optional[int] = Query(None),
+    pool: Optional[str] = Query(None),
+    ranking_type: Optional[str] = Query("alltime"),
+):
+    conditions: list[str] = []
+    params: dict = {}
+    if gender:
+        conditions.append("gender = :gender")
+        params["gender"] = gender
+    if stroke:
+        conditions.append("stroke = :stroke")
+        params["stroke"] = stroke
+    if distance:
+        conditions.append("distance = :distance")
+        params["distance"] = distance
+    if pool:
+        conditions.append("pool = :pool")
+        params["pool"] = pool
+    if ranking_type:
+        conditions.append("ranking_type = :ranking_type")
+        params["ranking_type"] = ranking_type
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = text(f"SELECT * FROM rankings {where} ORDER BY rank ASC, time ASC")
+    with engine.begin() as conn:
+        rows = conn.execute(query, params).mappings().all()
+    return rows
+
+
+###################################
+# Records
+###################################
+
+
+class RecordIn(BaseModel):
+    athlete_ext_id: int
+    athlete_name: Annotated[str, Field(max_length=200)]
+    country_code: Annotated[str | None, Field(max_length=10)] = None
+    gender: Annotated[str, Field(max_length=2)]
+    distance: int
+    stroke: Annotated[str, Field(max_length=30)]
+    pool: Annotated[str, Field(max_length=5)]
+    time: Annotated[str, Field(max_length=20)]
+    fina_points: float | None = None
+    event_name: Annotated[str | None, Field(max_length=500)] = None
+    event_city: Annotated[str | None, Field(max_length=200)] = None
+    result_date: datetime | None = None
+
+
+@app.post("/ingest/record", dependencies=[Depends(verify_api_key)])
+def ingest_record(record: RecordIn):
+    query = text(
+        """
+        INSERT INTO records (athlete_ext_id, athlete_name, country_code, gender,
+                             distance, stroke, pool, time, fina_points,
+                             event_name, event_city, result_date)
+        VALUES (:athlete_ext_id, :athlete_name, :country_code, :gender,
+                :distance, :stroke, :pool, :time, :fina_points,
+                :event_name, :event_city, :result_date)
+        ON CONFLICT (gender, distance, stroke, pool) DO UPDATE SET
+            athlete_ext_id = EXCLUDED.athlete_ext_id,
+            athlete_name = EXCLUDED.athlete_name,
+            country_code = EXCLUDED.country_code,
+            time = EXCLUDED.time,
+            fina_points = EXCLUDED.fina_points,
+            event_name = EXCLUDED.event_name,
+            event_city = EXCLUDED.event_city,
+            result_date = EXCLUDED.result_date;
+        """
+    )
+    with engine.begin() as conn:
+        conn.execute(query, record.model_dump())
+    return {"status": "ok"}
+
+
+@app.get("/records")
+def list_records(
+    gender: Optional[str] = Query(None),
+    pool: Optional[str] = Query(None),
+):
+    conditions: list[str] = []
+    params: dict = {}
+    if gender:
+        conditions.append("gender = :gender")
+        params["gender"] = gender
+    if pool:
+        conditions.append("pool = :pool")
+        params["pool"] = pool
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = text(
+        f"SELECT * FROM records {where} ORDER BY gender, stroke, distance ASC"
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(query, params).mappings().all()
     return rows
