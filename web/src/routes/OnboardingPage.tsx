@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -6,6 +6,7 @@ import { Stepper } from '../../components/Stepper';
 import { FollowButton } from '../../components/FollowButton';
 import { useUser } from '../store/UserStore';
 import type { OnboardingGoal, DigestPreference, UserProfile } from '../types/domain';
+import { getAthletesBySlug } from '../api/athletes';
 
 const STROKES: { value: StrokePreference; label: string }[] = [
     { value: 'butterfly', label: 'Butterfly' },
@@ -49,10 +50,14 @@ export function OnboardingPage() {
     countries: [],
     topics: [],
   });
+    
+  const [athletes, setAthletes] = useState<any[]>([]);
+  const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
+    
   const [digestPreference, setDigestPreference] = useState<DigestPreference>('weekly');
   const [strokePreference, setStrokePreference] = useState<StrokePreference[]>([])
 
-  const steps = ['Welcome', 'Lane', ...(lane === 'experienced' ? ['Athletes', 'Events', 'Interests'] : ['Strokes', 'Learn']), 'Signup'];
+  const steps = ['Welcome', 'Lane', 'Athletes', 'Events', 'Digest'];
 
   const toggleGoal = (g: OnboardingGoal) => {
     setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
@@ -65,6 +70,26 @@ export function OnboardingPage() {
       return { ...prev, [category]: next };
     });
   };
+    
+  // load pre-selected athletes
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getAthletesBySlug([
+          'leon-marchand',
+          'summer-mcintosh',
+          'katie-ledecky',
+          'david-popovici',
+          'kaylee-mckeown',
+        ]);
+        console.log('ATHLETES DATA:', data);
+        setAthletes(data);
+      } catch (e) {
+        console.error('failed to load athletes', e);
+      }
+    };
+    load();
+  }, []);
 
   const handleFinish = async () => {
     const profile: UserProfile = {
@@ -91,7 +116,7 @@ export function OnboardingPage() {
           </motion.div>
         )}
 
-      {/* LANE */}
+      {/* PICK A LANE */}
       {step === 1 && (
           <motion.div
             key="lane"
@@ -161,21 +186,56 @@ export function OnboardingPage() {
         </motion.div>
         )}
 
+        {/* FOLLOW ATHLETES */}
+        {step === 2 && (
+          <motion.div key="athletes" className="space-y-8 text-center">
+            <div>
+              <h2 className="text-xl text-white font-semibold">Follow top athletes</h2>
+              <p className="text-sm text-slate-400 mt-2">Pick a few to personalize your feed. You can add more later.</p>
+            </div>
 
-        {/* EXPERIENCED FLOW */}
-        {lane === 'experienced' && step === 2 && (
-          <motion.div key="athletes" className="space-y-6">
-            <h2 className="text-xl text-white">Follow athletes</h2>
+            <div className="relative flex justify-center items-center h-80">
+              {athletes.map((a, i) => {
+                const positions = [
+                  'top-0 left-1/2 -translate-x-1/2',
+                  'top-1/3 left-0',
+                  'top-1/3 right-0',
+                  'bottom-0 left-1/4',
+                  'bottom-0 right-1/4',
+                ];
+
+                const selected = selectedAthletes.includes(a.id);
+
+                return (
+                  <div key={a.id} className={`absolute ${positions[i]} flex flex-col items-center`}>
+                    <FollowButton entityType="athlete" entityId={a.id} name={a.name} meta={a.meta} />
+                      <div
+                        className={`w-24 h-24 rounded-full overflow-hidden border-2 transition-all duration-300
+                        ${selected ? 'border-cyan-400 bg-cyan-500/10 scale-110' : 'border-slate-700'}
+                        group-hover:scale-110 group-hover:border-cyan-400 group-hover:brightness-110`}
+                      >
+                        <img src={a.img} alt={a.name} className="w-full h-full object-cover" />
+                      </div>
+                    <p className="text-sm text-white mt-2">{a.name}</p>
+                    <p className="text-xs text-slate-400">{a.strokes}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-xs text-slate-500">Not sure? You can skip and follow athletes later.</p>
+
             <div className="flex justify-between pt-4">
-              <button type="button" onClick={() => setStep(1)} className="text-slate-400 hover:text-white text-sm">
-                Back
-              </button>
-              <button onClick={() => setStep(3)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
+              <button onClick={() => setStep(1)} className="text-slate-400 hover:text-white text-sm">Back</button>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(3)} className="text-slate-400 hover:text-white text-sm">Skip</button>
+                <button onClick={() => setStep(3)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
+              </div>
             </div>
           </motion.div>
-        )}
+        )} 
 
-        {lane === 'experienced' && step === 3 && (
+        {step === 3 && (
           <motion.div key="events" className="space-y-6">
             <h2 className="text-xl text-white">Follow events</h2>
             <div className="flex justify-between pt-4">
@@ -187,46 +247,8 @@ export function OnboardingPage() {
           </motion.div>
         )}
 
-        {lane === 'experienced' && step === 4 && (
-          <motion.div key="interests" className="space-y-6">
-            <h2 className="text-xl text-white">Your interests</h2>
-            <div className="flex justify-between pt-4">
-              <button type="button" onClick={() => setStep(3)} className="text-slate-400 hover:text-white text-sm">
-                Back
-              </button>
-              <button onClick={() => setStep(5)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* BEGINNER FLOW */}
-        {lane === 'beginner' && step === 2 && (
-          <motion.div key="strokes" className="space-y-6">
-            <h2 className="text-xl text-white">Pick strokes</h2>
-            <div className="flex justify-between pt-4">
-              <button type="button" onClick={() => setStep(1)} className="text-slate-400 hover:text-white text-sm">
-                Back
-              </button>
-              <button onClick={() => setStep(3)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
-             </div>
-           </motion.div>
-        )}
-
-        {lane === 'beginner' && step === 3 && (
-          <motion.div key="learn" className="space-y-6">
-            <h2 className="text-xl text-white">What do you want to learn?</h2>
-            <div className="flex justify-between pt-4">
-              <button type="button" onClick={() => setStep(2)} className="text-slate-400 hover:text-white text-sm">
-                Back
-              </button>
-              <button onClick={() => setStep(4)} className="bg-cyan-500 px-4 py-2 rounded">Next</button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* SIGNUP (FINAL) */}
-        {((lane === 'experienced' && step === 5) || (lane === 'beginner' && step === 4)) && (
-          <motion.div key="signup" className="space-y-6">
+        {step === 4 && (
+          <motion.div key="digest" className="space-y-6">
              <h2 className="text-xl text-white">Finish setup</h2>
 
              {DIGEST_OPTIONS.map((opt) => (
