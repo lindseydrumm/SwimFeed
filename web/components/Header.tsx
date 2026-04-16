@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings, Trophy, LogOut, User } from 'lucide-react';
+import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings, Trophy, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuth, useClerk, SignInButton } from '@clerk/clerk-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { useUser } from '../src/store/UserStore';
@@ -73,17 +73,32 @@ export function Header() {
 
         {/* Logo + sidebar dropdown */}
         <div className="relative" ref={logoMenuRef}>
-          <button
-            onClick={() => setLogoMenuOpen(!logoMenuOpen)}
-            className="flex items-center gap-2"
-          >
-            <div className="p-2 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20">
-              <Waves className="h-6 w-6 text-cyan-400" />
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">
-              Swim<span className="text-cyan-400">Live</span>
-            </span>
-          </button>
+          <div className="flex items-center gap-1">
+            <NavLink
+              to="/"
+              end
+              onClick={() => setLogoMenuOpen(false)}
+              className="flex items-center gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              aria-label="SwimLive Home"
+            >
+              <div className="p-2 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20">
+                <Waves className="h-6 w-6 text-cyan-400" />
+              </div>
+              <span className="text-xl font-bold text-white tracking-tight">
+                Swim<span className="text-cyan-400">Live</span>
+              </span>
+            </NavLink>
+
+            <button
+              type="button"
+              onClick={() => setLogoMenuOpen(!logoMenuOpen)}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+              aria-label={logoMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={logoMenuOpen}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${logoMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
 
           {logoMenuOpen && (
             <div className="absolute right-0 top-full mt-2 py-2 min-w-[140px] rounded-xl bg-slate-800 border border-slate-700 shadow-xl z-50">

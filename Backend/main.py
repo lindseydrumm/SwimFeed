@@ -148,6 +148,8 @@ def complete_onboarding(body: OnboardingIn, clerk_id: str = Depends(get_clerk_us
 class ProfilePatch(BaseModel):
     displayName: Optional[str] = None
     digestPreference: Optional[str] = None
+    goals: Optional[list] = None
+    interests: Optional[dict] = None
 
 
 @app.patch("/me")
@@ -159,6 +161,16 @@ def update_profile(body: ProfilePatch, clerk_id: str = Depends(get_clerk_user_id
         if body.digestPreference is not None:
             conn.execute(text("UPDATE users SET digest_preference = :v, updated_at = now() WHERE clerk_id = :c"),
                          {"v": body.digestPreference, "c": clerk_id})
+        if body.goals is not None:
+            conn.execute(
+                text("UPDATE users SET goals = CAST(:v AS JSONB), updated_at = now() WHERE clerk_id = :c"),
+                {"v": json.dumps(body.goals), "c": clerk_id},
+            )
+        if body.interests is not None:
+            conn.execute(
+                text("UPDATE users SET interests = CAST(:v AS JSONB), updated_at = now() WHERE clerk_id = :c"),
+                {"v": json.dumps(body.interests), "c": clerk_id},
+            )
         row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
     return _user_state(row)
 
