@@ -1,7 +1,7 @@
 /**
  * Onboarding wizard: 4 steps. Persists via useUser().completeOnboarding().
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -9,7 +9,10 @@ import { Badge } from '../../components/ui/Badge';
 import { Stepper } from '../../components/Stepper';
 import { FollowButton } from '../../components/FollowButton';
 import { useUser } from '../store/UserStore';
+import { useGuestGate } from '../hooks/useGuestGate';
 import type { OnboardingGoal, DigestPreference, UserProfile } from '../types/domain';
+import type { SwimEvent } from '../types/domain';
+import { getEvents } from '../api/events';
 
 const GOALS: { value: OnboardingGoal; label: string }[] = [
   { value: 'news', label: 'News & stories' },
@@ -47,6 +50,7 @@ const DIGEST_OPTIONS: { value: DigestPreference; label: string }[] = [
 export function OnboardingPage() {
   const navigate = useNavigate();
   const { completeOnboarding, isFollowing } = useUser();
+  const { requireAuth } = useGuestGate();
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState('Jordan');
   const [goals, setGoals] = useState<OnboardingGoal[]>([]);
@@ -57,9 +61,24 @@ export function OnboardingPage() {
     topics: [],
   });
   const [digestPreference, setDigestPreference] = useState<DigestPreference>('weekly');
+  const [recommendedEvents, setRecommendedEvents] = useState<SwimEvent[]>([]);
 
   const steps = ['Goals', 'Interests', 'Follow', 'Digest'];
   const totalSteps = steps.length;
+
+  useEffect(() => {
+    let cancelled = false;
+    getEvents()
+      .then((evs) => {
+        if (cancelled) return;
+        setRecommendedEvents(evs.slice(0, 3));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRecommendedEvents([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const toggleGoal = (g: OnboardingGoal) => {
     setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
@@ -86,8 +105,10 @@ export function OnboardingPage() {
       digestPreference,
       onboardingComplete: true,
     };
-    await completeOnboarding(profile);
-    navigate('/', { replace: true });
+    requireAuth(async () => {
+      await completeOnboarding(profile);
+      navigate('/', { replace: true });
+    });
   };
 
   return (
@@ -203,13 +224,18 @@ export function OnboardingPage() {
                 </div>
                 <p className="text-slate-400 text-xs uppercase pt-4">Recommended events</p>
                 <div className="flex flex-col gap-3">
-                  {RECOMMENDED_EVENTS.map((e) => (
+                  {(recommendedEvents.length > 0 ? recommendedEvents : RECOMMENDED_EVENTS).map((e: any) => (
                     <div
-                      key={e.id}
+                      key={String(e.id)}
                       className="flex items-center justify-between gap-3 py-2 border-b border-slate-700/50 last:border-0"
                     >
                       <p className="font-medium text-white">{e.name}</p>
-                      <FollowButton entityType="event" entityId={e.id} name={e.name} meta={e.meta} />
+                      <FollowButton
+                        entityType="event"
+                        entityId={String(e.id)}
+                        name={e.name}
+                        meta={e.meta}
+                      />
                     </div>
                   ))}
                 </div>

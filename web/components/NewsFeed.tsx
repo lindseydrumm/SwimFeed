@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import { getArticles } from '../src/api/articles';
 import { ArticleActions } from './ArticleActions';
 import { useUser } from '../src/store/UserStore';
+import { useGuestGate } from '../src/hooks/useGuestGate';
 
 type Article = {
   id: number;
@@ -75,6 +76,7 @@ export function NewsFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { markSeen, isSeen } = useUser();
+  const { requireAuth } = useGuestGate();
 
   // Kept: HTML summary to plain text.
   const getPlainText = (html?: string | null) => {
@@ -160,7 +162,7 @@ export function NewsFeed() {
                 className="block"
                 onClick={(e) => {
                   if (item.url === '#') e.preventDefault();
-                  else markSeen(urlOrId);
+                  else requireAuth(() => markSeen(urlOrId));
                 }}
               >
                 <Card className={`hover:bg-slate-800/80 transition-colors cursor-pointer group overflow-hidden border-slate-800 ${seen ? 'opacity-85' : ''}`}>
