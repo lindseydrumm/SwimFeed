@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/SectionHeader';
 import { StreakBadge } from '../../components/StreakBadge';
 import { useUser } from '../store/UserStore';
+import { useGuestGate } from '../hooks/useGuestGate';
 import { YourAthletes } from '../../components/YourAthletes';
 import { UpcomingRaces } from '../../components/UpcomingRaces';
 import { NewsFeed } from '../../components/NewsFeed';
@@ -17,11 +18,12 @@ import { Sparkles, Settings, Bookmark, Compass } from 'lucide-react';
 
 export function HomePage() {
   const { state, touchVisit, ready } = useUser();
+  const { isGuest } = useGuestGate();
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
 
   useEffect(() => {
-    if (ready) touchVisit();
-  }, [ready, touchVisit]);
+    if (ready && !isGuest) touchVisit();
+  }, [ready, isGuest, touchVisit]);
 
   const name = state?.profile?.displayName ?? 'there';
   const lastVisit = state?.activity?.lastVisitAt;

@@ -1,11 +1,13 @@
 /**
  * UserStore: global user state via React Context + reducer.
- * Persists via IUserRepository (LocalUserRepository). DB-ready: swap repo to Api.
+ * Signed-in users: persists via ApiUserRepository (backend DB).
+ * Guests: state is null; mutations are no-ops.
  */
-import React, { createContext, useCallback, useContext, useEffect, useReducer, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import type { UserState, UserProfile, FollowEntity, FollowEntityType } from '../types/domain';
 import type { IUserRepository } from '../repositories/UserRepository';
-import { LocalUserRepository } from '../repositories/LocalUserRepository';
+import { ApiUserRepository } from '../repositories/ApiUserRepository';
 
 type UserAction =
   | { type: 'SET_STATE'; payload: UserState | null }
@@ -118,28 +120,48 @@ function userReducer(state: UserState | null, action: UserAction): UserState | n
   }
 }
 
-const repo: IUserRepository = new LocalUserRepository();
-
 const UserStateContext = createContext<UserState | null>(null);
 const UserDispatchContext = createContext<React.Dispatch<UserAction> | null>(null);
 const UserReadyContext = createContext<boolean>(false);
+const UserRepoContext = createContext<React.MutableRefObject<IUserRepository | null> | null>(null);
 
 export function UserStoreProvider({ children }: { children: React.ReactNode }) {
+  const { isSignedIn, isLoaded, getToken } = useAuth();
   const [state, dispatch] = useReducer(userReducer, null);
   const [ready, setReady] = useState(false);
+  const repoRef = useRef<IUserRepository | null>(null);
 
   useEffect(() => {
+    if (!isLoaded) return;
+
+    if (!isSignedIn) {
+      // Guest: no profile, no repo
+      repoRef.current = null;
+      dispatch({ type: 'SET_STATE', payload: null });
+      setReady(true);
+      return;
+    }
+
+    // Signed in: use API repo
+    const repo = new ApiUserRepository(getToken);
+    repoRef.current = repo;
+    setReady(false);
     repo.getMe().then((s) => {
       dispatch({ type: 'SET_STATE', payload: s });
       setReady(true);
+    }).catch(() => {
+      dispatch({ type: 'SET_STATE', payload: null });
+      setReady(true);
     });
-  }, []);
+  }, [isSignedIn, isLoaded, getToken]);
 
   return (
     <UserStateContext.Provider value={state}>
       <UserDispatchContext.Provider value={dispatch}>
         <UserReadyContext.Provider value={ready}>
-          {children}
+          <UserRepoContext.Provider value={repoRef}>
+            {children}
+          </UserRepoContext.Provider>
         </UserReadyContext.Provider>
       </UserDispatchContext.Provider>
     </UserStateContext.Provider>
@@ -147,8 +169,7 @@ export function UserStoreProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useUserState(): UserState | null {
-  const ctx = useContext(UserStateContext);
-  return ctx ?? null;
+  return useContext(UserStateContext) ?? null;
 }
 
 export function useUserReady(): boolean {
@@ -175,88 +196,95 @@ export function useUser(): {
   const state = useUserState();
   const dispatch = useContext(UserDispatchContext);
   const ready = useUserReady();
+  const repoRef = useContext(UserRepoContext);
+
+  const repo = repoRef?.current ?? null;
 
   const completeOnboarding = useCallback(
     async (profile: UserProfile) => {
+      if (!repo) return;
       await repo.saveProfile(profile);
       const next = await repo.getMe();
-      if (next) dispatch?.({ type: 'SET_STATE', payload: next });
-      else dispatch?.({ type: 'COMPLETE_ONBOARDING', payload: profile });
+      dispatch?.({ type: 'SET_STATE', payload: next });
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const updateProfile = useCallback(
     async (partial: Partial<UserProfile>) => {
-      if (!state) return;
-      const next = { ...state.profile, ...partial };
-      await repo.saveProfile(next);
+      if (!repo || !state) return;
+      // ApiUserRepository has updateProfile; cast to access it
+      if ('updateProfile' in repo) await (repo as any).updateProfile(partial);
       dispatch?.({ type: 'UPDATE_PROFILE', payload: partial });
     },
-    [dispatch, state]
+    [repo, dispatch, state]
   );
 
   const follow = useCallback(
     async (type: FollowEntityType, entity: FollowEntity) => {
+      if (!repo) return;
+      dispatch?.({ type: 'FOLLOW', payload: { type, entity } });
       await repo.follow(type, entity);
-      const next = await repo.getMe();
-      if (next) dispatch?.({ type: 'SET_STATE', payload: next });
-      else dispatch?.({ type: 'FOLLOW', payload: { type, entity } });
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const unfollow = useCallback(
     async (type: FollowEntityType, entityId: string) => {
+      if (!repo) return;
+      dispatch?.({ type: 'UNFOLLOW', payload: { type, entityId } });
       await repo.unfollow(type, entityId);
-      const next = await repo.getMe();
-      if (next) dispatch?.({ type: 'SET_STATE', payload: next });
-      else dispatch?.({ type: 'UNFOLLOW', payload: { type, entityId } });
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const saveArticle = useCallback(
     async (urlOrId: string) => {
-      await repo.saveArticle(urlOrId);
+      if (!repo) return;
       dispatch?.({ type: 'SAVE_ARTICLE', payload: urlOrId });
+      await repo.saveArticle(urlOrId);
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const unsaveArticle = useCallback(
     async (urlOrId: string) => {
-      await repo.unsaveArticle(urlOrId);
+      if (!repo) return;
       dispatch?.({ type: 'UNSAVE_ARTICLE', payload: urlOrId });
+      await repo.unsaveArticle(urlOrId);
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const markSeen = useCallback(
     async (urlOrId: string) => {
-      await repo.markSeen(urlOrId);
+      if (!repo) return;
       dispatch?.({ type: 'MARK_SEEN', payload: urlOrId });
+      await repo.markSeen(urlOrId);
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const touchVisit = useCallback(async () => {
-    await repo.touchVisit();
+    if (!repo) return;
     dispatch?.({ type: 'TOUCH_VISIT' });
-  }, [dispatch]);
+    await repo.touchVisit();
+  }, [repo, dispatch]);
 
   const completeLearnModule = useCallback(
     async (moduleId: string) => {
-      await repo.completeLearnModule(moduleId);
+      if (!repo) return;
       dispatch?.({ type: 'COMPLETE_LEARN', payload: moduleId });
+      await repo.completeLearnModule(moduleId);
     },
-    [dispatch]
+    [repo, dispatch]
   );
 
   const resetProfile = useCallback(async () => {
+    if (!repo) return;
     await repo.reset();
     dispatch?.({ type: 'RESET' });
-  }, [dispatch]);
+  }, [repo, dispatch]);
 
   const isFollowing = useCallback(
     (type: FollowEntityType, entityId: string): boolean => {
@@ -268,16 +296,12 @@ export function useUser(): {
   );
 
   const isSaved = useCallback(
-    (urlOrId: string): boolean => {
-      return !!state?.contentState.savedArticles.includes(urlOrId);
-    },
+    (urlOrId: string): boolean => !!state?.contentState.savedArticles.includes(urlOrId),
     [state]
   );
 
   const isSeen = useCallback(
-    (urlOrId: string): boolean => {
-      return !!state?.contentState.seenArticles.some((s) => s.id === urlOrId);
-    },
+    (urlOrId: string): boolean => !!state?.contentState.seenArticles.some((s) => s.id === urlOrId),
     [state]
   );
 
@@ -285,6 +309,7 @@ export function useUser(): {
     state,
     ready,
     completeOnboarding,
+    updateProfile,
     follow,
     unfollow,
     saveArticle,

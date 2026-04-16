@@ -17,4 +17,6 @@ dependencies = [
     "sqlalchemy>=2.0.46",
     "uvicorn>=0.40.0",
     "tqdm>=4.67.3",
+    "PyJWT>=2.8.0",
+    "cryptography>=42.0.0",
 ]

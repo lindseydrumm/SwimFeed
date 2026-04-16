@@ -4,16 +4,16 @@ SwimLive is a competitive swimming aggregation platform that makes the sport eas
 
 This is a dual-app repository:
 
-- **Backend/** -- Python FastAPI backend with PostgreSQL
-- **web/** -- React single-page application built with Vite
+- **Backend/** — Python FastAPI backend with PostgreSQL
+- **web/** — React single-page application built with Vite
 
 ---
 
 ## Tech Stack
 
-**Backend:** Python 3.12, FastAPI, PostgreSQL 15, SQLAlchemy (raw SQL), Pydantic, uv
+**Backend:** Python 3.12, FastAPI, PostgreSQL 15, SQLAlchemy (raw SQL), Pydantic, uv, PyJWT
 
-**Frontend:** React 19, Vite 7, TypeScript, Tailwind CSS 3.4, framer-motion, react-router-dom
+**Frontend:** React 19, Vite 7, TypeScript, Tailwind CSS 3.4, framer-motion, react-router-dom, Clerk
 
 **Infrastructure:** Docker Compose, Render (deployment)
 
@@ -26,11 +26,13 @@ This is a dual-app repository:
 | `Backend/` | FastAPI backend, scrapers, and Dockerfile |
 | `Backend/scrapers/` | Data scrapers (RSS feeds, World Aquatics API, USA Swimming) |
 | `web/` | React SPA frontend |
-| `web/components/` | Shared presentational components (Card, Badge, etc.) |
+| `web/components/` | Shared presentational components |
 | `web/src/` | App source: routes, API client, state management, types |
+| `web/src/hooks/` | Custom hooks including `useGuestGate` |
+| `web/src/repositories/` | Data layer: `ApiUserRepository` (DB), `LocalUserRepository` (localStorage) |
 | `docker-compose.yml` | Local dev services (PostgreSQL + backend) |
 | `docker-init/` | SQL scripts for database initialization |
-| `.env.example` | Environment variable template |
+| `.env.example` | Backend environment variable template |
 
 ---
 
@@ -41,17 +43,67 @@ This is a dual-app repository:
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - [Node.js](https://nodejs.org/) 18+ and npm
 
-### Environment Setup
+---
 
-Copy the environment template and adjust if needed:
+## Authentication Setup (Clerk)
+
+SwimLive uses [Clerk](https://clerk.com) for authentication. Each developer needs their own free Clerk app for local development.
+
+### 1. Create a Clerk app
+
+1. Go to [dashboard.clerk.com](https://dashboard.clerk.com) and sign in
+2. Click **Create application**, name it anything (e.g. `swimlive-dev`)
+3. Choose your preferred sign-in methods (Email, Google, etc.)
+
+### 2. Configure the frontend
+
+Create `web/.env.local` (this file is gitignored — never commit it):
+
+```bash
+# web/.env.local
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_YOUR_PUBLISHABLE_KEY_HERE
+```
+
+Your publishable key is on the **API Keys** page of your Clerk app dashboard.
+
+### 3. Configure the backend
+
+The root `.env` file needs the Clerk JWKS URL so the backend can verify JWTs.
+
+Your JWKS URL follows this pattern:
+```
+https://<your-clerk-domain>/.well-known/jwks.json
+```
+
+Find your Clerk domain on the **API Keys** page — it's shown under **Advanced**. Or derive it from your publishable key: the part after `pk_test_` is base64 — decoding it gives your domain.
+
+Add it to `.env`:
+
+```bash
+CLERK_JWKS_URL=https://YOUR-CLERK-DOMAIN.clerk.accounts.dev/.well-known/jwks.json
+```
+
+### 4. Verify
+
+Run the app (see below). Clicking **Sign in** in the navbar should open your Clerk modal. After signing in, the app runs onboarding and then persists all activity to the database.
+
+---
+
+## Environment Setup
+
+Copy the environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-The defaults work out of the box with Docker Compose (database credentials: `dev/dev`, database name: `swimlive`).
+Then add your `CLERK_JWKS_URL` as described above. The other defaults work out of the box with Docker Compose.
 
-### Start the Backend
+---
+
+## Starting the App
+
+### Backend (Docker)
 
 From the repository root:
 
@@ -59,20 +111,13 @@ From the repository root:
 docker compose up --build
 ```
 
-This will:
-- Start PostgreSQL 15 and run the schema initialization script
-- Build and start the FastAPI backend with hot reload
-- Mount the `Backend/` directory into the container for live code changes
-
-The API will be available at http://localhost:8000.
-
-To check backend logs:
+This starts PostgreSQL 15 and the FastAPI backend with hot reload. The API is available at http://localhost:8000.
 
 ```bash
-docker compose logs backend
+docker compose logs backend    # view logs
 ```
 
-### Start the Frontend
+### Frontend
 
 In a separate terminal:
 
@@ -82,27 +127,63 @@ npm install
 npm run dev
 ```
 
-The app will be available at http://localhost:5173.
+The app is available at http://localhost:5173.
 
-The frontend reads `VITE_API_BASE_URL` from the environment (defaults to `http://localhost:8000`).
+---
+
+## Guest vs Signed-In Access
+
+| Feature | Guest | Signed In |
+|---------|-------|-----------|
+| Browse events, athletes, storylines, records | Yes | Yes |
+| View Explore, Learn modules, quizzes | Yes | Yes |
+| Follow athletes / events | No — opens sign-in | Yes, persisted to DB |
+| Save articles, mark as read | No — opens sign-in | Yes, persisted to DB |
+| My Feed personalization | Basic view | Fully personalized |
+| Edit profile / settings | No — opens sign-in | Yes, persisted to DB |
+| Streak tracking, learn completions | No | Yes, persisted to DB |
+| Onboarding flow | Not required | Required on first sign-in |
+
+Guests who click any protected action are shown the Clerk sign-in modal automatically.
 
 ---
 
 ## API Endpoints
 
+### Public
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/articles` | List all articles, newest first |
-| `POST` | `/ingest/article` | Ingest a single article |
-| `GET` | `/athletes` | Search/list athletes (params: `q`, `country`, `limit`, `offset`) |
-| `GET` | `/athletes/countries` | Top 20 country codes by athlete count |
-| `GET` | `/athletes/{slug}` | Single athlete by slug |
-| `POST` | `/athletes/batch` | Batch fetch athletes by slug list |
-| `POST` | `/ingest/athlete` | Upsert an athlete by external_id |
-| `GET` | `/events` | List all events, ordered by date |
-| `POST` | `/ingest/event` | Ingest a single event |
+| `GET` | `/athletes` | Search/list athletes (`q`, `country`, `limit`, `offset`) |
+| `GET` | `/athletes/countries` | Top 20 country codes |
+| `GET` | `/athletes/{slug}` | Single athlete |
+| `POST` | `/athletes/batch` | Batch fetch by slug list |
+| `GET` | `/events` | List all events |
 
-CORS is configured to allow `http://localhost:5173` (the frontend dev server).
+### User profile (requires `Authorization: Bearer <clerk_token>`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/me` | Get full user state (creates user on first call) |
+| `POST` | `/me/onboarding` | Save onboarding profile |
+| `PATCH` | `/me` | Update display name or digest preference |
+| `POST` | `/me/follow` | Follow an athlete, event, topic, or storyline |
+| `DELETE` | `/me/follow/{type}/{id}` | Unfollow |
+| `POST` | `/me/saved` | Save an article |
+| `DELETE` | `/me/saved/{urlOrId}` | Unsave an article |
+| `POST` | `/me/seen` | Mark article as read |
+| `POST` | `/me/visit` | Touch visit timestamp / update streak |
+| `POST` | `/me/learn/{moduleId}` | Mark a learn module complete |
+| `POST` | `/me/reset` | Reset all user data |
+
+### Ingestion (requires `X-API-Key` header if `INGEST_API_KEY` is set)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/ingest/article` | Ingest an article |
+| `POST` | `/ingest/athlete` | Upsert an athlete |
+| `POST` | `/ingest/event` | Ingest an event |
 
 ---
 
@@ -116,7 +197,7 @@ Run all scrapers:
 docker exec swimlive_backend uv run -m scrapers.run_all
 ```
 
-> **Warning:** The athlete scraper (included in `run_all`) takes a long time to complete -- roughly 30 minutes when posting to a local server, and 3+ hours when posting to a remote server. To quickly test how the scraper works, you can set `total_pages` on line 32 of `Backend/scrapers/wa_athletes_scrape.py` to a small value like `10`.
+> **Warning:** The athlete scraper takes a long time — ~30 min locally, 3+ hours to a remote server. To test quickly, set `total_pages` on line 32 of `Backend/scrapers/wa_athletes_scrape.py` to a small value like `10`.
 
 Individual scrapers:
 
@@ -129,31 +210,12 @@ Individual scrapers:
 
 ---
 
-## Frontend
-
-### Pages
-
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Home | Personalized feed (requires onboarding) |
-| `/onboarding` | Onboarding | New user setup flow |
-| `/events` | Events | Browse upcoming events |
-| `/events/:id` | Event Detail | Single event details |
-| `/athletes` | Athletes | Search and browse athletes |
-| `/athletes/:slug` | Athlete Detail | Individual athlete profile |
-| `/explore` | Explore | Discover content by category |
-| `/storylines` | Storylines | Curated swimming storylines |
-| `/saved` | Saved | User's saved content |
-| `/learn` | Learn | Educational swimming content |
-| `/recap` | Recap | Activity recap |
-| `/settings` | Settings | User preferences |
-
-### Scripts
+## Frontend Scripts
 
 ```bash
 npm run dev       # Start Vite dev server (port 5173)
 npm run build     # Production build (output: web/dist/)
-npm run lint      # ESLint (targets .js/.jsx files only)
+npm run lint      # ESLint
 npm run preview   # Preview production build locally
 ```
 
@@ -163,4 +225,4 @@ npm run preview   # Preview production build locally
 
 The deployed application is available at: https://swimlive.onrender.com/
 
-*Note: The free-tier server spins down after 15 minutes of inactivity. Initial visits may take 1-5 minutes to load while the server starts up.*
+*Note: The free-tier server spins down after 15 minutes of inactivity. Initial visits may take 1–5 minutes to load.*

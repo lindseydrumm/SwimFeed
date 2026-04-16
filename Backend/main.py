@@ -1,11 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
+import json
 import bleach
+import jwt
+from jwt import PyJWKClient
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 
 # import environmental variables
 from config import settings
@@ -21,6 +25,337 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# API-key authentication for ingestion endpoints
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Clerk JWT authentication
+# ---------------------------------------------------------------------------
+
+_jwks_client: PyJWKClient | None = None
+
+
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        if not settings.clerk_jwks_url:
+            raise HTTPException(status_code=500, detail="CLERK_JWKS_URL not configured")
+        _jwks_client = PyJWKClient(settings.clerk_jwks_url)
+    return _jwks_client
+
+
+def get_clerk_user_id(authorization: str | None = Header(None)) -> str:
+    """Extract and verify Clerk JWT; return the Clerk user ID (sub claim)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization.split(" ", 1)[1]
+    try:
+        client = _get_jwks_client()
+        signing_key = client.get_signing_key_from_jwt(token)
+        data = jwt.decode(token, signing_key.key, algorithms=["RS256"])
+        return data["sub"]
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}") from exc
+
+
+def _user_state(row: dict) -> dict:
+    """Convert a DB row to the UserState shape the frontend expects."""
+    return {
+        "profile": {
+            "displayName": row["display_name"],
+            "goals": row["goals"],
+            "interests": row["interests"],
+            "digestPreference": row["digest_preference"],
+            "onboardingComplete": row["onboarding_complete"],
+        },
+        "follows": row["follows"],
+        "contentState": {
+            "savedArticles": row["saved_articles"],
+            "seenArticles": row["seen_articles"],
+        },
+        "activity": {
+            "lastVisitAt": row["last_visit_at"].isoformat() if row["last_visit_at"] else None,
+            "streakCount": row["streak_count"],
+            "learnCompletions": row["learn_completions"],
+        },
+    }
+
+
+def _upsert_user(conn, clerk_id: str) -> dict:
+    """Insert user if not exists, return the row."""
+    conn.execute(
+        text("""
+            INSERT INTO users (clerk_id) VALUES (:clerk_id)
+            ON CONFLICT (clerk_id) DO NOTHING
+        """),
+        {"clerk_id": clerk_id},
+    )
+    row = conn.execute(
+        text("SELECT * FROM users WHERE clerk_id = :clerk_id"),
+        {"clerk_id": clerk_id},
+    ).mappings().first()
+    return dict(row)
+
+
+# ---------------------------------------------------------------------------
+# /me — user profile endpoints (all require Clerk JWT)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/me")
+def get_me(clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        row = _upsert_user(conn, clerk_id)
+    return _user_state(row)
+
+
+class OnboardingIn(BaseModel):
+    displayName: str
+    goals: list = []
+    interests: dict = {}
+    digestPreference: str = "daily"
+
+
+@app.post("/me/onboarding")
+def complete_onboarding(body: OnboardingIn, clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE users SET
+                    display_name = :display_name,
+                    goals = CAST(:goals AS JSONB),
+                    interests = CAST(:interests AS JSONB),
+                    digest_preference = :digest_preference,
+                    onboarding_complete = TRUE,
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {
+                "clerk_id": clerk_id,
+                "display_name": body.displayName,
+                "goals": json.dumps(body.goals),
+                "interests": json.dumps(body.interests),
+                "digest_preference": body.digestPreference,
+            },
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+class ProfilePatch(BaseModel):
+    displayName: Optional[str] = None
+    digestPreference: Optional[str] = None
+
+
+@app.patch("/me")
+def update_profile(body: ProfilePatch, clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        if body.displayName is not None:
+            conn.execute(text("UPDATE users SET display_name = :v, updated_at = now() WHERE clerk_id = :c"),
+                         {"v": body.displayName, "c": clerk_id})
+        if body.digestPreference is not None:
+            conn.execute(text("UPDATE users SET digest_preference = :v, updated_at = now() WHERE clerk_id = :c"),
+                         {"v": body.digestPreference, "c": clerk_id})
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+class FollowIn(BaseModel):
+    type: str
+    entity: dict  # { id, type, name, meta? }
+
+
+@app.post("/me/follow")
+def follow(body: FollowIn, clerk_id: str = Depends(get_clerk_user_id)):
+    key = {"athlete": "athletes", "event": "events", "topic": "topics", "storyline": "storylines"}.get(body.type)
+    if not key:
+        raise HTTPException(400, "Invalid entity type")
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"""
+                UPDATE users SET
+                    follows = jsonb_set(
+                        follows,
+                        '{{"{key}"}}',
+                        CASE
+                            WHEN follows->'{key}' @> jsonb_build_array(jsonb_build_object('id', :entity_id))
+                            THEN follows->'{key}'
+                            ELSE follows->'{key}' || CAST(:entity AS JSONB)
+                        END
+                    ),
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id, "entity_id": body.entity["id"], "entity": json.dumps([body.entity])},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+@app.delete("/me/follow/{entity_type}/{entity_id}")
+def unfollow(entity_type: str, entity_id: str, clerk_id: str = Depends(get_clerk_user_id)):
+    key = {"athlete": "athletes", "event": "events", "topic": "topics", "storyline": "storylines"}.get(entity_type)
+    if not key:
+        raise HTTPException(400, "Invalid entity type")
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"""
+                UPDATE users SET
+                    follows = jsonb_set(
+                        follows,
+                        '{{"{key}"}}',
+                        (SELECT jsonb_agg(elem)
+                         FROM jsonb_array_elements(follows->'{key}') elem
+                         WHERE elem->>'id' != :entity_id)
+                    ),
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id, "entity_id": entity_id},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+class SavedIn(BaseModel):
+    urlOrId: str
+
+
+@app.post("/me/saved")
+def save_article(body: SavedIn, clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE users SET
+                    saved_articles = CASE
+                        WHEN saved_articles @> CAST(:val AS JSONB) THEN saved_articles
+                        ELSE saved_articles || CAST(:val AS JSONB)
+                    END,
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id, "val": json.dumps([body.urlOrId])},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+@app.delete("/me/saved/{url_or_id:path}")
+def unsave_article(url_or_id: str, clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE users SET
+                    saved_articles = (
+                        SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                        FROM jsonb_array_elements(saved_articles) elem
+                        WHERE elem::text != :val
+                    ),
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id, "val": json.dumps(url_or_id)},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+class SeenIn(BaseModel):
+    urlOrId: str
+
+
+@app.post("/me/seen")
+def mark_seen(body: SeenIn, clerk_id: str = Depends(get_clerk_user_id)):
+    seen_entry = {"id": body.urlOrId, "seenAt": datetime.now(timezone.utc).isoformat()}
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE users SET
+                    seen_articles = CASE
+                        WHEN EXISTS (
+                            SELECT 1 FROM jsonb_array_elements(seen_articles) e WHERE e->>'id' = :url_or_id
+                        )
+                        THEN seen_articles
+                        ELSE seen_articles || CAST(:entry AS JSONB)
+                    END,
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id, "url_or_id": body.urlOrId, "entry": json.dumps([seen_entry])},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+@app.post("/me/visit")
+def touch_visit(clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+        now = datetime.now(timezone.utc)
+        prev = row["last_visit_at"]
+        streak = row["streak_count"]
+        if prev is None or prev.date() != now.date():
+            if prev is not None:
+                from datetime import timedelta
+                yesterday = (now - timedelta(days=1)).date()
+                streak = streak + 1 if prev.date() == yesterday else 1
+            else:
+                streak = 1
+        conn.execute(
+            text("UPDATE users SET last_visit_at = :now, streak_count = :streak, updated_at = now() WHERE clerk_id = :c"),
+            {"c": clerk_id, "now": now, "streak": streak},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+@app.post("/me/learn/{module_id}")
+def complete_learn(module_id: str, clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE users SET
+                    learn_completions = CASE
+                        WHEN learn_completions @> CAST(:val AS JSONB) THEN learn_completions
+                        ELSE learn_completions || CAST(:val AS JSONB)
+                    END,
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id, "val": json.dumps([module_id])},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
+
+
+@app.post("/me/reset")
+def reset_user(clerk_id: str = Depends(get_clerk_user_id)):
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE users SET
+                    display_name = '',
+                    goals = '[]',
+                    interests = '{}',
+                    digest_preference = 'daily',
+                    onboarding_complete = FALSE,
+                    follows = '{"athletes":[],"events":[],"topics":[],"storylines":[]}',
+                    saved_articles = '[]',
+                    seen_articles = '[]',
+                    last_visit_at = NULL,
+                    streak_count = 0,
+                    learn_completions = '[]',
+                    updated_at = now()
+                WHERE clerk_id = :clerk_id
+            """),
+            {"clerk_id": clerk_id},
+        )
+        row = dict(conn.execute(text("SELECT * FROM users WHERE clerk_id = :c"), {"c": clerk_id}).mappings().first())
+    return _user_state(row)
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +412,40 @@ def init_db() -> None:
                     world_records INTEGER,
                     world_rank INTEGER,
                     img TEXT
+                );
+                CREATE TABLE IF NOT EXISTS rankings (
+                    id              SERIAL PRIMARY KEY,
+                    athlete_ext_id  INTEGER NOT NULL,
+                    athlete_name    TEXT NOT NULL,
+                    country_code    TEXT,
+                    gender          TEXT NOT NULL,
+                    distance        INTEGER NOT NULL,
+                    stroke          TEXT NOT NULL,
+                    pool            TEXT NOT NULL,
+                    rank            INTEGER NOT NULL,
+                    time            TEXT NOT NULL,
+                    fina_points     REAL,
+                    event_name      TEXT,
+                    event_city      TEXT,
+                    result_date     TIMESTAMPTZ,
+                    ranking_type    TEXT NOT NULL DEFAULT 'alltime',
+                    UNIQUE (athlete_ext_id, gender, distance, stroke, pool, ranking_type)
+                );
+                CREATE TABLE IF NOT EXISTS records (
+                    id              SERIAL PRIMARY KEY,
+                    athlete_ext_id  INTEGER NOT NULL,
+                    athlete_name    TEXT NOT NULL,
+                    country_code    TEXT,
+                    gender          TEXT NOT NULL,
+                    distance        INTEGER NOT NULL,
+                    stroke          TEXT NOT NULL,
+                    pool            TEXT NOT NULL,
+                    time            TEXT NOT NULL,
+                    fina_points     REAL,
+                    event_name      TEXT,
+                    event_city      TEXT,
+                    result_date     TIMESTAMPTZ,
+                    UNIQUE (gender, distance, stroke, pool)
                 );
                 """
             )
@@ -174,8 +543,15 @@ def ingest_athlete(athlete: AthleteIn):
         """
     )
 
-    with engine.begin() as conn:
-        conn.execute(query, payload)
+    try:
+        with engine.begin() as conn:
+            conn.execute(query, payload)
+    except IntegrityError:
+        # Slug collision: a different athlete with the same name already exists.
+        # Retry with the external_id appended to make the slug unique.
+        payload["slug"] = f"{slug}-{athlete.external_id}"
+        with engine.begin() as conn:
+            conn.execute(query, payload)
 
 
 class AthleteBatchIn(BaseModel):
@@ -302,4 +678,154 @@ def list_events():
     with engine.begin() as conn:
         rows = conn.execute(query).mappings().all()
 
+    return rows
+
+
+###################################
+# Rankings
+###################################
+
+
+class RankingIn(BaseModel):
+    athlete_ext_id: int
+    athlete_name: Annotated[str, Field(max_length=200)]
+    country_code: Annotated[str | None, Field(max_length=10)] = None
+    gender: Annotated[str, Field(max_length=2)]
+    distance: int
+    stroke: Annotated[str, Field(max_length=30)]
+    pool: Annotated[str, Field(max_length=5)]
+    rank: int
+    time: Annotated[str, Field(max_length=20)]
+    fina_points: float | None = None
+    event_name: Annotated[str | None, Field(max_length=500)] = None
+    event_city: Annotated[str | None, Field(max_length=200)] = None
+    result_date: datetime | None = None
+    ranking_type: Annotated[str, Field(max_length=20)] = "alltime"
+
+
+@app.post("/ingest/ranking", dependencies=[Depends(verify_api_key)])
+def ingest_ranking(ranking: RankingIn):
+    query = text(
+        """
+        INSERT INTO rankings (athlete_ext_id, athlete_name, country_code, gender,
+                              distance, stroke, pool, rank, time, fina_points,
+                              event_name, event_city, result_date, ranking_type)
+        VALUES (:athlete_ext_id, :athlete_name, :country_code, :gender,
+                :distance, :stroke, :pool, :rank, :time, :fina_points,
+                :event_name, :event_city, :result_date, :ranking_type)
+        ON CONFLICT (athlete_ext_id, gender, distance, stroke, pool, ranking_type) DO UPDATE SET
+            athlete_name = EXCLUDED.athlete_name,
+            country_code = EXCLUDED.country_code,
+            rank = EXCLUDED.rank,
+            time = EXCLUDED.time,
+            fina_points = EXCLUDED.fina_points,
+            event_name = EXCLUDED.event_name,
+            event_city = EXCLUDED.event_city,
+            result_date = EXCLUDED.result_date;
+        """
+    )
+    with engine.begin() as conn:
+        conn.execute(query, ranking.model_dump())
+    return {"status": "ok"}
+
+
+@app.get("/rankings")
+def list_rankings(
+    gender: Optional[str] = Query(None),
+    stroke: Optional[str] = Query(None),
+    distance: Optional[int] = Query(None),
+    pool: Optional[str] = Query(None),
+    ranking_type: Optional[str] = Query("alltime"),
+):
+    conditions: list[str] = []
+    params: dict = {}
+    if gender:
+        conditions.append("gender = :gender")
+        params["gender"] = gender
+    if stroke:
+        conditions.append("stroke = :stroke")
+        params["stroke"] = stroke
+    if distance:
+        conditions.append("distance = :distance")
+        params["distance"] = distance
+    if pool:
+        conditions.append("pool = :pool")
+        params["pool"] = pool
+    if ranking_type:
+        conditions.append("ranking_type = :ranking_type")
+        params["ranking_type"] = ranking_type
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = text(f"SELECT * FROM rankings {where} ORDER BY rank ASC, time ASC")
+    with engine.begin() as conn:
+        rows = conn.execute(query, params).mappings().all()
+    return rows
+
+
+###################################
+# Records
+###################################
+
+
+class RecordIn(BaseModel):
+    athlete_ext_id: int
+    athlete_name: Annotated[str, Field(max_length=200)]
+    country_code: Annotated[str | None, Field(max_length=10)] = None
+    gender: Annotated[str, Field(max_length=2)]
+    distance: int
+    stroke: Annotated[str, Field(max_length=30)]
+    pool: Annotated[str, Field(max_length=5)]
+    time: Annotated[str, Field(max_length=20)]
+    fina_points: float | None = None
+    event_name: Annotated[str | None, Field(max_length=500)] = None
+    event_city: Annotated[str | None, Field(max_length=200)] = None
+    result_date: datetime | None = None
+
+
+@app.post("/ingest/record", dependencies=[Depends(verify_api_key)])
+def ingest_record(record: RecordIn):
+    query = text(
+        """
+        INSERT INTO records (athlete_ext_id, athlete_name, country_code, gender,
+                             distance, stroke, pool, time, fina_points,
+                             event_name, event_city, result_date)
+        VALUES (:athlete_ext_id, :athlete_name, :country_code, :gender,
+                :distance, :stroke, :pool, :time, :fina_points,
+                :event_name, :event_city, :result_date)
+        ON CONFLICT (gender, distance, stroke, pool) DO UPDATE SET
+            athlete_ext_id = EXCLUDED.athlete_ext_id,
+            athlete_name = EXCLUDED.athlete_name,
+            country_code = EXCLUDED.country_code,
+            time = EXCLUDED.time,
+            fina_points = EXCLUDED.fina_points,
+            event_name = EXCLUDED.event_name,
+            event_city = EXCLUDED.event_city,
+            result_date = EXCLUDED.result_date;
+        """
+    )
+    with engine.begin() as conn:
+        conn.execute(query, record.model_dump())
+    return {"status": "ok"}
+
+
+@app.get("/records")
+def list_records(
+    gender: Optional[str] = Query(None),
+    pool: Optional[str] = Query(None),
+):
+    conditions: list[str] = []
+    params: dict = {}
+    if gender:
+        conditions.append("gender = :gender")
+        params["gender"] = gender
+    if pool:
+        conditions.append("pool = :pool")
+        params["pool"] = pool
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = text(
+        f"SELECT * FROM records {where} ORDER BY gender, stroke, distance ASC"
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(query, params).mappings().all()
     return rows

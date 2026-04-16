@@ -15,11 +15,14 @@ class Settings(BaseSettings):
     article_api_url: str = "http://localhost:8000/ingest/article"
     event_api_url: str = "http://localhost:8000/ingest/event"
     athlete_api_url: str = "http://localhost:8000/ingest/athlete"
+    ranking_api_url: str = "http://localhost:8000/ingest/ranking"
+    record_api_url: str = "http://localhost:8000/ingest/record"
 
     # Security
     ingest_api_key: str = (
         ""  # If set, /ingest/* endpoints require this as X-API-Key header
     )
+    clerk_jwks_url: str = ""  # e.g. https://<your-clerk-domain>/.well-known/jwks.json
     cors_origins: str = "http://localhost:5173"  # Comma-separated allowed origins
 
     # Application Configuration
