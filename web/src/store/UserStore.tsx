@@ -215,7 +215,8 @@ export function useUser(): {
       if (!repo || !state) return;
       // ApiUserRepository has updateProfile; cast to access it
       if ('updateProfile' in repo) await (repo as any).updateProfile(partial);
-      dispatch?.({ type: 'UPDATE_PROFILE', payload: partial });
+      const next = await repo.getMe();
+      dispatch?.({ type: 'SET_STATE', payload: next });
     },
     [repo, dispatch, state]
   );

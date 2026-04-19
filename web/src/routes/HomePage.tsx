@@ -2,7 +2,7 @@
  * My Feed dashboard: personalized header, Since last visit, For You, Because you follow, Watchlist, Continue Reading, Explore Next.
  */
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/SectionHeader';
 import { StreakBadge } from '../../components/StreakBadge';
@@ -17,8 +17,9 @@ import { exploreLanes } from '../data/lanes';
 import { Sparkles, Settings, Bookmark, Compass } from 'lucide-react';
 
 export function HomePage() {
+  const navigate = useNavigate();
   const { state, touchVisit, ready } = useUser();
-  const { isGuest } = useGuestGate();
+  const { isGuest, requireAuth } = useGuestGate();
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -73,6 +74,11 @@ export function HomePage() {
           <Link
             to="/settings"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50"
+            onClick={(e) => {
+              if (!isGuest) return;
+              e.preventDefault();
+              requireAuth(() => navigate('/settings'));
+            }}
           >
             <Settings className="h-4 w-4" />
             Edit interests

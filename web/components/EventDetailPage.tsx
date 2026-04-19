@@ -118,7 +118,7 @@ export function EventDetailPage() {
     );
   }
 
-  const eventId = `event-${event.external_id}`;
+  const eventId = String(event.id ?? event.external_id);
 
   return (
     <div className="max-w-3xl mx-auto pb-12 space-y-12">
