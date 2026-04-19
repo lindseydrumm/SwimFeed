@@ -623,6 +623,25 @@ def batch_athletes(body: AthleteBatchIn):
     return rows
 
 
+class AthleteExtIdBatchIn(BaseModel):
+    external_ids: list[int]
+
+
+@app.post("/athletes/batch-by-ext-id")
+def batch_athletes_by_ext_id(body: AthleteExtIdBatchIn):
+    """Return slug mappings for a list of external_ids."""
+    if not body.external_ids:
+        return []
+    placeholders = ", ".join([f":e{i}" for i in range(len(body.external_ids))])
+    params = {f"e{i}": eid for i, eid in enumerate(body.external_ids)}
+    query = text(
+        f"SELECT external_id, slug, name, img FROM athletes WHERE external_id IN ({placeholders})"
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(query, params).mappings().all()
+    return [dict(r) for r in rows]
+
+
 @app.get("/athletes/{slug}")
 def get_athlete(slug: str):
     query = text("SELECT * FROM athletes WHERE slug = :slug")
