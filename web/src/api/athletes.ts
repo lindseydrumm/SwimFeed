@@ -50,3 +50,15 @@ export function getAthletesBySlug(slugs: string[]) {
   return apiPost<Athlete[]>('/athletes/batch', { slugs });
 }
 
+export type AthleteSlugMapping = {
+  external_id: number;
+  slug: string;
+  name: string;
+  img: string | null;
+};
+
+export function getAthletesByExtIds(externalIds: number[]) {
+  if (externalIds.length === 0) return Promise.resolve([]);
+  return apiPost<AthleteSlugMapping[]>('/athletes/batch-by-ext-id', { external_ids: externalIds });
+}
+

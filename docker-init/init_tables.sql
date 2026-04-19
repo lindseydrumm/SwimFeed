@@ -41,6 +41,42 @@ CREATE TABLE IF NOT EXISTS articles (
     summary       TEXT,
     source        TEXT NOT NULL
 );
+-- --------------- rankings ---------------
+CREATE TABLE IF NOT EXISTS rankings (
+    id              SERIAL PRIMARY KEY,
+    athlete_ext_id  INTEGER NOT NULL,
+    athlete_name    TEXT NOT NULL,
+    country_code    TEXT,
+    gender          TEXT NOT NULL,
+    distance        INTEGER NOT NULL,
+    stroke          TEXT NOT NULL,
+    pool            TEXT NOT NULL,
+    rank            INTEGER NOT NULL,
+    time            TEXT NOT NULL,
+    fina_points     REAL,
+    event_name      TEXT,
+    event_city      TEXT,
+    result_date     TIMESTAMPTZ,
+    ranking_type    TEXT NOT NULL DEFAULT 'alltime',
+    UNIQUE (athlete_ext_id, gender, distance, stroke, pool, ranking_type)
+);
+-- --------------- records ----------------
+CREATE TABLE IF NOT EXISTS records (
+    id              SERIAL PRIMARY KEY,
+    athlete_ext_id  INTEGER NOT NULL,
+    athlete_name    TEXT NOT NULL,
+    country_code    TEXT,
+    gender          TEXT NOT NULL,
+    distance        INTEGER NOT NULL,
+    stroke          TEXT NOT NULL,
+    pool            TEXT NOT NULL,
+    time            TEXT NOT NULL,
+    fina_points     REAL,
+    event_name      TEXT,
+    event_city      TEXT,
+    result_date     TIMESTAMPTZ,
+    UNIQUE (gender, distance, stroke, pool)
+);
 -- --------------- events -----------------
 CREATE TABLE IF NOT EXISTS events (
     id              SERIAL PRIMARY KEY,

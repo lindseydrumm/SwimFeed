@@ -40,13 +40,19 @@ export function SwimmerPage() {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.8 }}
-          className="w-32 h-32 mx-auto bg-slate-700 rounded-full mb-6 overflow-hidden border-4 border-slate-700 shadow-xl ring-2 ring-cyan-500/30"
+          className="w-32 h-32 mx-auto bg-slate-700 rounded-full mb-6 overflow-hidden border-4 border-slate-700 shadow-xl ring-2 ring-cyan-500/30 flex items-center justify-center"
         >
-          <img
-            src="https://images.unsplash.com/photo-1552065327-43675de3d3a1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
-            alt={athlete?.name ?? 'Athlete profile'}
-            className="w-full h-full object-cover"
-          />
+          {athlete?.img ? (
+            <img
+              src={athlete.img}
+              alt={athlete.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-3xl font-bold text-slate-300">
+              {(athlete?.name ?? '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+            </span>
+          )}
         </motion.div>
 
         <motion.h1
