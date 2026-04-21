@@ -56,6 +56,11 @@ interface Slide {
   subtitle: string;
   imageUrl: string;
   url: string | null;
+  article?: Article;
+}
+
+interface FeaturedCarouselProps {
+  onArticleChange?: (article: Article | null) => void;
 }
 
 // --- Helpers ---
@@ -83,12 +88,13 @@ function articleToSlide(article: Article, index: number): Slide {
       : stripHtml(article.summary).slice(0, 120) || '',
     imageUrl: image ?? POOL_IMAGES[index % POOL_IMAGES.length],
     url: article.url,
+    article,
   };
 }
 
 const MAX_SLIDES = 5;
 
-export function FeaturedCarousel() {
+export function FeaturedCarousel({ onArticleChange }: FeaturedCarouselProps) {
   const [slides, setSlides] = useState<Slide[]>(fallbackSlides);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -97,6 +103,7 @@ export function FeaturedCarousel() {
   // TODO: Select articles based on personalisation
   useEffect(() => {
     let cancelled = false;
+
     getArticles()
       .then((data) => {
         if (cancelled) return;
@@ -111,15 +118,20 @@ export function FeaturedCarousel() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Auto-play
   useEffect(() => {
     if (isPaused || loading) return;
+
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % slides.length);
     }, 5000);
+
     return () => clearInterval(interval);
   }, [isPaused, loading, slides.length]);
 
@@ -141,6 +153,10 @@ export function FeaturedCarousel() {
   };
 
   const current = slides[currentIndex];
+
+  useEffect(() => {
+    onArticleChange?.(current.article ?? null);
+  }, [current, onArticleChange]);
 
   const inner = (
     <div
@@ -192,7 +208,11 @@ export function FeaturedCarousel() {
           {/* Navigation arrows */}
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToPrevious(); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goToPrevious();
+            }}
             className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-900/60 backdrop-blur-sm text-white hover:bg-slate-900/80 transition-all opacity-0 group-hover:opacity-100 z-10"
             aria-label="Previous slide"
           >
@@ -200,7 +220,11 @@ export function FeaturedCarousel() {
           </button>
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToNext(); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goToNext();
+            }}
             className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-900/60 backdrop-blur-sm text-white hover:bg-slate-900/80 transition-all opacity-0 group-hover:opacity-100 z-10"
             aria-label="Next slide"
           >
@@ -213,7 +237,11 @@ export function FeaturedCarousel() {
               <button
                 key={index}
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToSlide(index); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  goToSlide(index);
+                }}
                 className={`h-2 rounded-full transition-all ${
                   index === currentIndex
                     ? 'w-8 bg-cyan-400'
@@ -228,7 +256,6 @@ export function FeaturedCarousel() {
     </div>
   );
 
-  // If the current slide has a URL, wrap the whole thing in a link
   if (!loading && current.url) {
     return (
       <a href={current.url} target="_blank" rel="noopener noreferrer" className="block">
