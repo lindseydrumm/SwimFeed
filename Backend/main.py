@@ -423,7 +423,30 @@ def init_db() -> None:
                     medals INTEGER,
                     world_records INTEGER,
                     world_rank INTEGER,
-                    img TEXT
+                    img TEXT,
+                    gender TEXT,
+                    date_of_birth DATE,
+                    gold_medals INTEGER,
+                    silver_medals INTEGER,
+                    bronze_medals INTEGER,
+                    discipline TEXT,
+                    height TEXT,
+                    coach TEXT,
+                    club TEXT,
+                    detail_scraped_at TIMESTAMPTZ
+                );
+                CREATE TABLE IF NOT EXISTS athlete_personal_bests (
+                    id SERIAL PRIMARY KEY,
+                    athlete_ext_id INTEGER NOT NULL,
+                    event TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    medal TEXT,
+                    pool_length TEXT,
+                    age INTEGER,
+                    competition TEXT,
+                    comp_country TEXT,
+                    result_date TEXT,
+                    UNIQUE (athlete_ext_id, event, pool_length)
                 );
                 CREATE TABLE IF NOT EXISTS rankings (
                     id              SERIAL PRIMARY KEY,
@@ -529,6 +552,8 @@ class AthleteIn(BaseModel):
     world_records: int | None = None
     world_rank: int | None = None
     img: Annotated[str | None, Field(max_length=2000)] = None
+    gender: Annotated[str | None, Field(max_length=2)] = None
+    date_of_birth: str | None = None
 
 
 @app.post("/ingest/athlete", dependencies=[Depends(verify_api_key)])
@@ -539,8 +564,8 @@ def ingest_athlete(athlete: AthleteIn):
     payload["slug"] = slug
     query = text(
         """
-        INSERT INTO athletes (external_id, slug, name, country, flag, strokes, bio, medals, world_records, world_rank, img)
-        VALUES (:external_id, :slug, :name, :country, :flag, :strokes, :bio, :medals, :world_records, :world_rank, :img)
+        INSERT INTO athletes (external_id, slug, name, country, flag, strokes, bio, medals, world_records, world_rank, img, gender, date_of_birth)
+        VALUES (:external_id, :slug, :name, :country, :flag, :strokes, :bio, :medals, :world_records, :world_rank, :img, :gender, :date_of_birth)
         ON CONFLICT (external_id) DO UPDATE SET
             slug = EXCLUDED.slug,
             name = EXCLUDED.name,
@@ -551,7 +576,9 @@ def ingest_athlete(athlete: AthleteIn):
             medals = EXCLUDED.medals,
             world_records = EXCLUDED.world_records,
             world_rank = EXCLUDED.world_rank,
-            img = EXCLUDED.img;
+            img = EXCLUDED.img,
+            gender = COALESCE(EXCLUDED.gender, athletes.gender),
+            date_of_birth = COALESCE(EXCLUDED.date_of_birth, athletes.date_of_birth);
         """
     )
 
@@ -665,6 +692,205 @@ def get_athlete(slug: str):
         raise HTTPException(status_code=404, detail="Athlete not found")
 
     return row
+
+
+@app.get("/athletes/{slug}/personal-bests")
+def get_athlete_personal_bests(slug: str):
+    """Return personal best results for an athlete by slug."""
+    with engine.begin() as conn:
+        athlete = conn.execute(
+            text("SELECT external_id FROM athletes WHERE slug = :slug"),
+            {"slug": slug},
+        ).mappings().first()
+        if not athlete:
+            raise HTTPException(status_code=404, detail="Athlete not found")
+
+        rows = conn.execute(
+            text("""
+                SELECT event, time, medal, pool_length, age, competition,
+                       comp_country, result_date
+                FROM athlete_personal_bests
+                WHERE athlete_ext_id = :ext_id
+                ORDER BY event ASC
+            """),
+            {"ext_id": athlete["external_id"]},
+        ).mappings().all()
+
+    return [dict(r) for r in rows]
+
+
+###################################
+# Athlete Detail Ingestion
+###################################
+
+
+class AthleteDetailIn(BaseModel):
+    external_id: int
+    gold_medals: int | None = None
+    silver_medals: int | None = None
+    bronze_medals: int | None = None
+    discipline: Annotated[str | None, Field(max_length=100)] = None
+    height: Annotated[str | None, Field(max_length=20)] = None
+    coach: Annotated[str | None, Field(max_length=200)] = None
+    club: Annotated[str | None, Field(max_length=200)] = None
+
+
+@app.post("/ingest/athlete-detail", dependencies=[Depends(verify_api_key)])
+def ingest_athlete_detail(detail: AthleteDetailIn):
+    """Update an athlete row with scraped detail data (medals, discipline, etc.)."""
+    total = (detail.gold_medals or 0) + (detail.silver_medals or 0) + (detail.bronze_medals or 0)
+    query = text("""
+        UPDATE athletes SET
+            gold_medals = COALESCE(:gold_medals, gold_medals),
+            silver_medals = COALESCE(:silver_medals, silver_medals),
+            bronze_medals = COALESCE(:bronze_medals, bronze_medals),
+            medals = :total_medals,
+            discipline = COALESCE(:discipline, discipline),
+            height = COALESCE(:height, height),
+            coach = COALESCE(:coach, coach),
+            club = COALESCE(:club, club),
+            detail_scraped_at = now()
+        WHERE external_id = :external_id
+    """)
+    with engine.begin() as conn:
+        result = conn.execute(query, {
+            **detail.model_dump(),
+            "total_medals": total if total > 0 else None,
+        })
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Athlete not found")
+    return {"status": "ok"}
+
+
+class PersonalBestItem(BaseModel):
+    event: Annotated[str, Field(max_length=200)]
+    time: Annotated[str, Field(max_length=20)]
+    medal: Annotated[str | None, Field(max_length=10)] = None
+    pool_length: Annotated[str | None, Field(max_length=5)] = None
+    age: int | None = None
+    competition: Annotated[str | None, Field(max_length=500)] = None
+    comp_country: Annotated[str | None, Field(max_length=10)] = None
+    result_date: Annotated[str | None, Field(max_length=20)] = None
+
+
+class AthletePersonalBestsIn(BaseModel):
+    external_id: int
+    personal_bests: list[PersonalBestItem]
+
+
+@app.post("/ingest/athlete-personal-bests", dependencies=[Depends(verify_api_key)])
+def ingest_athlete_personal_bests(body: AthletePersonalBestsIn):
+    """Upsert personal best results for an athlete."""
+    if not body.personal_bests:
+        return {"status": "ok", "count": 0}
+
+    query = text("""
+        INSERT INTO athlete_personal_bests
+            (athlete_ext_id, event, time, medal, pool_length, age, competition, comp_country, result_date)
+        VALUES
+            (:athlete_ext_id, :event, :time, :medal, :pool_length, :age, :competition, :comp_country, :result_date)
+        ON CONFLICT (athlete_ext_id, event, pool_length) DO UPDATE SET
+            time = EXCLUDED.time,
+            medal = EXCLUDED.medal,
+            age = EXCLUDED.age,
+            competition = EXCLUDED.competition,
+            comp_country = EXCLUDED.comp_country,
+            result_date = EXCLUDED.result_date
+    """)
+
+    with engine.begin() as conn:
+        for pb in body.personal_bests:
+            conn.execute(query, {
+                "athlete_ext_id": body.external_id,
+                **pb.model_dump(),
+            })
+
+    return {"status": "ok", "count": len(body.personal_bests)}
+
+
+###################################
+# On-demand Athlete Detail Scraping
+###################################
+
+
+@app.post("/athletes/{slug}/scrape-detail")
+def scrape_athlete_detail_on_demand(slug: str):
+    """Scrape detail page for a single athlete on demand.
+
+    Used when a user visits a profile that hasn't been scraped yet.
+    No auth required — rate limiting should be handled at the proxy level.
+    """
+    with engine.begin() as conn:
+        athlete = conn.execute(
+            text("SELECT external_id, slug, detail_scraped_at FROM athletes WHERE slug = :slug"),
+            {"slug": slug},
+        ).mappings().first()
+
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    from scrapers.wa_athlete_detail_scrape import scrape_single
+
+    detail = scrape_single(athlete["external_id"], athlete["slug"])
+    if not detail:
+        raise HTTPException(status_code=502, detail="Failed to scrape athlete page")
+
+    # Store the scraped data directly (bypass HTTP round-trip)
+    total = (detail.get("gold_medals") or 0) + (detail.get("silver_medals") or 0) + (detail.get("bronze_medals") or 0)
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE athletes SET
+                gold_medals = COALESCE(:gold, gold_medals),
+                silver_medals = COALESCE(:silver, silver_medals),
+                bronze_medals = COALESCE(:bronze, bronze_medals),
+                medals = :total,
+                discipline = COALESCE(:discipline, discipline),
+                detail_scraped_at = now()
+            WHERE external_id = :ext_id
+        """), {
+            "gold": detail.get("gold_medals"),
+            "silver": detail.get("silver_medals"),
+            "bronze": detail.get("bronze_medals"),
+            "total": total if total > 0 else None,
+            "discipline": detail.get("discipline"),
+            "ext_id": athlete["external_id"],
+        })
+
+        # Upsert personal bests
+        pb_query = text("""
+            INSERT INTO athlete_personal_bests
+                (athlete_ext_id, event, time, medal, pool_length, age, competition, comp_country, result_date)
+            VALUES
+                (:athlete_ext_id, :event, :time, :medal, :pool_length, :age, :competition, :comp_country, :result_date)
+            ON CONFLICT (athlete_ext_id, event, pool_length) DO UPDATE SET
+                time = EXCLUDED.time,
+                medal = EXCLUDED.medal,
+                age = EXCLUDED.age,
+                competition = EXCLUDED.competition,
+                comp_country = EXCLUDED.comp_country,
+                result_date = EXCLUDED.result_date
+        """)
+        for pb in detail.get("personal_bests", []):
+            conn.execute(pb_query, {
+                "athlete_ext_id": athlete["external_id"],
+                **pb,
+            })
+
+    # Return the updated athlete + personal bests
+    with engine.begin() as conn:
+        updated = conn.execute(
+            text("SELECT * FROM athletes WHERE slug = :slug"),
+            {"slug": slug},
+        ).mappings().first()
+        pbs = conn.execute(
+            text("SELECT * FROM athlete_personal_bests WHERE athlete_ext_id = :ext_id ORDER BY event"),
+            {"ext_id": athlete["external_id"]},
+        ).mappings().all()
+
+    return {
+        "athlete": dict(updated),
+        "personal_bests": [dict(r) for r in pbs],
+    }
 
 
 ###################################

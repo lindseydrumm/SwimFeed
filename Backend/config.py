@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     athlete_api_url: str = "http://localhost:8000/ingest/athlete"
     ranking_api_url: str = "http://localhost:8000/ingest/ranking"
     record_api_url: str = "http://localhost:8000/ingest/record"
+    athlete_detail_api_url: str = "http://localhost:8000/ingest/athlete-detail"
+    athlete_personal_bests_api_url: str = "http://localhost:8000/ingest/athlete-personal-bests"
 
     # Security
     ingest_api_key: str = (
