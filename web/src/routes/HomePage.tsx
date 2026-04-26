@@ -2,7 +2,7 @@
  * My Feed dashboard: personalized header, Since last visit, For You, Because you follow, Watchlist, Continue Reading, Explore Next.
  */
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/SectionHeader';
 import { StreakBadge } from '../../components/StreakBadge';
@@ -19,12 +19,12 @@ import { Sparkles, Settings, Bookmark, Compass } from 'lucide-react';
 import type { Article } from '../types/domain';
 
 export function HomePage() {
-  const navigate = useNavigate();
   const { state, touchVisit, ready } = useUser();
-  const { isGuest, requireAuth } = useGuestGate();
+  const { isGuest } = useGuestGate();
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
 
+  // Touch visit when user is authenticated
   useEffect(() => {
     if (ready && !isGuest) touchVisit();
   }, [ready, isGuest, touchVisit]);
@@ -39,6 +39,7 @@ export function HomePage() {
   const savedCount = state?.contentState?.savedArticles?.length ?? 0;
   const streak = state?.activity?.streakCount ?? 0;
 
+  // Calculate new articles since last visit
   useEffect(() => {
     if (lastVisit) setNewSinceCount(3);
     else setNewSinceCount(null);
@@ -48,13 +49,18 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Featured carousel */}
+      {/* Featured carousel - passes current article to athlete info bar */}
       <section>
-        <FeaturedCarousel onArticleChange={setCurrentArticle} />
+        <FeaturedCarousel 
+          onArticleChange={setCurrentArticle} 
+          autoPlayInterval={5000}
+        />
       </section>
 
-      {/* Athlete info bar */}
-      <AthleteInfoBar article={currentArticle} />
+      {/* Athlete info bar - syncs with carousel */}
+      <section>
+        <AthleteInfoBar article={currentArticle} />
+      </section>
 
       {/* Personalized header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -93,26 +99,21 @@ export function HomePage() {
         <div className="flex flex-wrap gap-2">
           <Link
             to="/settings"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50"
-            onClick={(e) => {
-              if (!isGuest) return;
-              e.preventDefault();
-              requireAuth(() => navigate('/settings'));
-            }}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50 transition-colors"
           >
             <Settings className="h-4 w-4" />
             Edit interests
           </Link>
           <Link
             to="/explore"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50 transition-colors"
           >
             <Compass className="h-4 w-4" />
             Add follows
           </Link>
           <Link
             to="/saved"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
           >
             <Bookmark className="h-4 w-4" />
             View saved ({savedCount})
@@ -167,7 +168,7 @@ export function HomePage() {
           title="Explore Next"
           subtitle="Pick a lane based on your interests"
           action={
-            <Link to="/explore" className="text-sm text-cyan-400 hover:text-cyan-300">
+            <Link to="/explore" className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
               See all
             </Link>
           }
