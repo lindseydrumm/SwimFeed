@@ -7,6 +7,7 @@ from scrapers.wa_events_scrape import main as wa_events_main
 from scrapers.usaswim_events_scrape import main as usaswim_events_main
 from scrapers.wa_rankings_scrape import main as rankings_main
 from scrapers.wa_athletes_scrape import main as athletes_main
+from scrapers.wa_athlete_detail_scrape import main as athlete_detail_main
 
 
 def main():
@@ -24,6 +25,9 @@ def main():
 
     print("\n=== Running Athletes scraper (targeted from rankings) ===")
     athletes_main(athlete_ids=athlete_ids)
+
+    print("\n=== Running Athlete Detail scraper (HTML pages) ===")
+    athlete_detail_main(athlete_ids=athlete_ids)
 
     print("\n=== All scrapers finished ===")
 

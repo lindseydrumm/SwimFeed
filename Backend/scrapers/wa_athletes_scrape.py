@@ -61,19 +61,62 @@ def scrape_by_ids(ids: set[int]) -> list[dict]:
 
 def country_code_to_flag(code: str | None) -> str | None:
     """Convert a three-letter IOC country code to a flag emoji.
-    Only a subset of common codes is supported; unknown codes return None.
+
+    Uses an IOC→ISO-3166-1-alpha-2 mapping for codes that differ,
+    then converts the 2-letter code to regional-indicator emoji algorithmically.
     """
     if not code:
         return None
-    mapping = {
-        "USA": "\U0001f1fa\U0001f1f8",
-        "IND": "\U0001f1ee\U0001f1f3",
-        "TUR": "\U0001f1f9\U0001f1f7",
-        "EST": "\U0001f1ea\U0001f1ea",
-        "DEN": "\U0001f1e9\U0001f1f0",
-        "FIN": "\U0001f1eb\U0001f1ee",
+
+    # IOC codes that differ from ISO alpha-2 (or alpha-3 truncation).
+    # Most IOC 3-letter codes match the first two letters of ISO alpha-2,
+    # but ~40 countries diverge. This covers all swimming-relevant ones.
+    IOC_TO_ISO2 = {
+        "AHO": "CW", "ALG": "DZ", "ANG": "AO", "ANT": "AG", "ARU": "AW",
+        "BAH": "BS", "BAN": "BD", "BAR": "BB", "BER": "BM", "BIZ": "BZ",
+        "BOT": "BW", "BRU": "BN", "BUL": "BG", "BUR": "BF", "CAM": "KH",
+        "CAY": "KY", "CGO": "CG", "CHI": "CL", "CHN": "CN", "CIV": "CI",
+        "COD": "CD", "CRC": "CR", "CRO": "HR", "DEN": "DK", "ESA": "SV",
+        "ESP": "ES", "FIJ": "FJ", "GBR": "GB", "GER": "DE", "GRE": "GR",
+        "GUA": "GT", "GUI": "GN", "HAI": "HT", "HKG": "HK", "HON": "HN",
+        "INA": "ID", "IND": "IN", "IRI": "IR", "IRL": "IE", "ISV": "VI",
+        "ITA": "IT", "IVB": "VG", "JAM": "JM", "JPN": "JP", "KAZ": "KZ",
+        "KGZ": "KG", "KOR": "KR", "KSA": "SA", "KUW": "KW", "LAT": "LV",
+        "LBA": "LY", "LES": "LS", "LIB": "LB", "LTU": "LT", "MAD": "MG",
+        "MAS": "MY", "MAW": "MW", "MEX": "MX", "MGL": "MN", "MKD": "MK",
+        "MLI": "ML", "MNE": "ME", "MON": "MC", "MOZ": "MZ", "MRI": "MU",
+        "MTN": "MR", "MYA": "MM", "NAM": "NA", "NCA": "NI", "NED": "NL",
+        "NEP": "NP", "NGR": "NG", "NIG": "NE", "NOR": "NO", "OMA": "OM",
+        "PAK": "PK", "PAN": "PA", "PAR": "PY", "PER": "PE", "PHI": "PH",
+        "PLE": "PS", "PNG": "PG", "POR": "PT", "PRK": "KP", "PUR": "PR",
+        "QAT": "QA", "ROU": "RO", "RSA": "ZA", "RUS": "RU", "RWA": "RW",
+        "SAM": "WS", "SEN": "SN", "SEY": "SC", "SIN": "SG", "SLE": "SL",
+        "SLO": "SI", "SMR": "SM", "SOL": "SB", "SOM": "SO", "SRB": "RS",
+        "SRI": "LK", "SUD": "SD", "SUI": "CH", "SUR": "SR", "SVK": "SK",
+        "SWE": "SE", "SWZ": "SZ", "SYR": "SY", "TAN": "TZ", "TGA": "TO",
+        "THA": "TH", "TJK": "TJ", "TKM": "TM", "TOG": "TG", "TPE": "TW",
+        "TRI": "TT", "TUN": "TN", "TUR": "TR", "UAE": "AE", "UGA": "UG",
+        "UKR": "UA", "URU": "UY", "USA": "US", "UZB": "UZ", "VAN": "VU",
+        "VEN": "VE", "VIE": "VN", "ZAM": "ZM", "ZIM": "ZW",
+        # Common aliases
+        "EST": "EE", "FIN": "FI", "AUS": "AU", "AUT": "AT", "BRA": "BR",
+        "CAN": "CA", "COL": "CO", "CUB": "CU", "CZE": "CZ", "ECU": "EC",
+        "EGY": "EG", "ETH": "ET", "FRA": "FR", "GEO": "GE", "GHA": "GH",
+        "HUN": "HU", "ISL": "IS", "ISR": "IL", "KEN": "KE", "NZL": "NZ",
+        "POL": "PL", "SGP": "SG",
     }
-    return mapping.get(code.upper())
+
+    ioc = code.upper()
+    iso2 = IOC_TO_ISO2.get(ioc)
+    if not iso2:
+        # Fallback: try first two letters (works for ~100 codes like ARG, BEL, etc.)
+        iso2 = ioc[:2]
+
+    # Convert 2-letter ISO code to regional indicator symbols (flag emoji)
+    try:
+        return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in iso2.upper())
+    except Exception:
+        return None
 
 
 def fetch_photos(ids: list[int]) -> dict[int, str]:
@@ -167,6 +210,8 @@ def _ingest_athletes(athletes: list[dict]) -> None:
                 "world_records": None,
                 "world_rank": None,
                 "img": photo_map.get(a["id"]),
+                "gender": a.get("gender"),
+                "date_of_birth": a.get("dateOfBirth"),
             }
             _post_athlete(payload)
 
