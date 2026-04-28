@@ -1,6 +1,7 @@
 import requests
 from tqdm import tqdm
 from config import settings
+from scrapers import normalize_name
 
 
 BASE = "https://api.worldaquatics.com/fina/athletes"
@@ -201,7 +202,7 @@ def _ingest_athletes(athletes: list[dict]) -> None:
         for a in tqdm(batch, desc="Posting athletes", leave=False):
             payload = {
                 "external_id": a["id"],
-                "name": a["fullName"].strip(),
+                "name": normalize_name(a["fullName"].strip()),
                 "country": a.get("nationality"),
                 "flag": country_code_to_flag(a.get("nationality")),
                 "strokes": None,

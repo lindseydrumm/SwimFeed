@@ -11,6 +11,7 @@ import datetime
 import requests
 from tqdm import tqdm
 from config import settings
+from scrapers import normalize_name
 
 RANKINGS_BASE = "https://api.worldaquatics.com/fina/rankings/swimming"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
@@ -153,7 +154,7 @@ def scrape_rankings(ranking_type: str = "alltime", year: int | None = None) -> s
 
             ranking_payload = {
                 "athlete_ext_id": ext_id,
-                "athlete_name": r.get("fullName", "").strip(),
+                "athlete_name": normalize_name(r.get("fullName", "").strip()),
                 "country_code": r.get("participantCountryCode"),
                 "gender": combo["gender"],
                 "distance": combo["distance"],
@@ -173,7 +174,7 @@ def scrape_rankings(ranking_type: str = "alltime", year: int | None = None) -> s
             if i == 0 and ranking_type == "alltime":
                 record_payload = {
                     "athlete_ext_id": ext_id,
-                    "athlete_name": r.get("fullName", "").strip(),
+                    "athlete_name": normalize_name(r.get("fullName", "").strip()),
                     "country_code": r.get("participantCountryCode"),
                     "gender": combo["gender"],
                     "distance": combo["distance"],
