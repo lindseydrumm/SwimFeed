@@ -10,6 +10,7 @@ Usage:
 """
 
 import time
+from datetime import datetime, timedelta, timezone
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -27,6 +28,9 @@ API_HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 
 # Rate limit: seconds between HTML page requests
 REQUEST_DELAY = 1.0
+
+# Re-scrape an athlete's detail page only if last scrape is older than this.
+SCRAPE_TTL_DAYS = 3
 
 
 # ---------------------------------------------------------------------------
@@ -312,15 +316,37 @@ def main(athlete_ids: set[int] | None = None):
     if athlete_ids:
         athletes = [a for a in athletes if a["external_id"] in athlete_ids]
 
-    # Prioritise athletes that haven't been scraped yet
-    unscraped = [a for a in athletes if not a.get("detail_scraped_at")]
-    scraped = [a for a in athletes if a.get("detail_scraped_at")]
-    ordered = unscraped + scraped
+    # Skip athletes whose detail was scraped within SCRAPE_TTL_DAYS.
+    threshold = datetime.now(timezone.utc) - timedelta(days=SCRAPE_TTL_DAYS)
 
-    print(f"Will scrape {len(unscraped)} unscraped + {len(scraped)} to refresh = {len(ordered)} total athletes")
+    def _needs_scrape(a: dict) -> bool:
+        ts = a.get("detail_scraped_at")
+        if not ts:
+            return True
+        try:
+            scraped_at = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            if scraped_at.tzinfo is None:
+                scraped_at = scraped_at.replace(tzinfo=timezone.utc)
+            return scraped_at < threshold
+        except (ValueError, AttributeError):
+            return True
+
+    to_scrape = [a for a in athletes if _needs_scrape(a)]
+    skipped = len(athletes) - len(to_scrape)
+
+    # Prioritise never-scraped athletes first
+    to_scrape.sort(key=lambda a: (a.get("detail_scraped_at") is not None, a.get("detail_scraped_at") or ""))
+
+    print(
+        f"{len(to_scrape)} athletes to scrape, {skipped} already fresh (within {SCRAPE_TTL_DAYS} days, skipped)"
+    )
+
+    if not to_scrape:
+        print("Nothing to do.")
+        return
 
     success = 0
-    for athlete in tqdm(ordered, desc="Scraping athlete details", unit="athlete"):
+    for athlete in tqdm(to_scrape, desc="Scraping athlete details", unit="athlete"):
         ext_id = athlete["external_id"]
         slug = athlete["slug"]
 
@@ -332,7 +358,7 @@ def main(athlete_ids: set[int] | None = None):
 
         time.sleep(REQUEST_DELAY)
 
-    print(f"Successfully scraped {success}/{len(ordered)} athlete detail pages")
+    print(f"Successfully scraped {success}/{len(to_scrape)} athlete detail pages")
 
 
 if __name__ == "__main__":
