@@ -119,7 +119,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Since your last visit */}
+      {/* Since last visit */}
       {lastVisit && (
         <Card animate={false} className="border-cyan-500/20">
           <CardContent className="p-4">
@@ -139,7 +139,7 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* Your Athletes rail */}
+      {/* Athletes rail */}
       <section>
         <YourAthletes />
       </section>
@@ -149,22 +149,22 @@ export function HomePage() {
         <UpcomingRaces />
       </section>
 
-      {/* For You + Recent Results grid */}
+      {/* Results grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <section className="lg:col-span-2">
-          <SectionHeader title="For You" subtitle="News ranked by your interests and follows" />
+  <section className="lg:col-span-2">
+    <SectionHeader title="For You" subtitle="News ranked by your interests and follows" />
 
-          <NewsFeed onArticlesChange={setLatestNewsArticles} />
+    <NewsFeed onArticlesChange={setLatestNewsArticles} />
+  </section>
 
-          <div className="mt-6">
-            <AthleteInfoBar articles={latestNewsArticles} />
-          </div>
-        </section>
+  <section className="lg:col-span-1">
+    <RecentResults />
+  </section>
 
-        <section className="lg:col-span-1">
-          <RecentResults />
-        </section>
-      </div>
+  <section className="lg:col-span-3">
+    <AthleteInfoBar articles={latestNewsArticles} />
+  </section>
+</div>
 
       {/* Explore Next */}
       <section>
