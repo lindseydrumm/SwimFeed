@@ -18,7 +18,7 @@ import { ArticleActions } from './ArticleActions';
 import { useUser } from '../src/store/UserStore';
 import { useGuestGate } from '../src/hooks/useGuestGate';
 
-type Article = {
+export type Article = {
   id: number;
   title: string;
   url: string;
@@ -26,6 +26,10 @@ type Article = {
   summary: string | null;
   source: string;
 };
+
+interface NewsFeedProps {
+  onArticlesChange?: (articles: Article[]) => void;
+}
 
 // Kept: Original mock data for local UI testing without the backend.
 const fake_news = [
@@ -71,7 +75,7 @@ const fake_news = [
   },
 ];
 
-export function NewsFeed() {
+export function NewsFeed({ onArticlesChange }: NewsFeedProps) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +137,11 @@ export function NewsFeed() {
     
   // FUNCTION to select relevant articles
   // for now, just first 5
-  const custom_items = items.slice(0,5)
+ const custom_items = items.slice(0, 5);
+
+useEffect(() => {
+  onArticlesChange?.(custom_items);
+}, [onArticlesChange, custom_items]);
 
   return (
     <div className="space-y-4">

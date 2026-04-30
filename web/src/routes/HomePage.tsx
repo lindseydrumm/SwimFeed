@@ -10,19 +10,19 @@ import { useUser } from '../store/UserStore';
 import { useGuestGate } from '../hooks/useGuestGate';
 import { YourAthletes } from '../../components/YourAthletes';
 import { UpcomingRaces } from '../../components/UpcomingRaces';
-import { NewsFeed } from '../../components/NewsFeed';
+import { NewsFeed, type Article as NewsArticle } from '../../components/NewsFeed';
 import { RecentResults } from '../../components/RecentResults';
 import { FeaturedCarousel } from '../../components/FeaturedCarousel';
 import { AthleteInfoBar } from '../../components/AthleteInfoBar';
 import { exploreLanes } from '../data/lanes';
 import { Sparkles, Settings, Bookmark, Compass } from 'lucide-react';
-import type { Article } from '../types/domain';
 
 export function HomePage() {
   const { state, touchVisit, ready } = useUser();
   const { isGuest } = useGuestGate();
+
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
-  const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
+  const [latestNewsArticles, setLatestNewsArticles] = useState<NewsArticle[]>([]);
 
   // Touch visit when user is authenticated
   useEffect(() => {
@@ -49,17 +49,12 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Featured carousel - passes current article to athlete info bar */}
+      {/* Featured carousel */}
       <section>
-        <FeaturedCarousel 
-          onArticleChange={setCurrentArticle} 
+        <FeaturedCarousel
+          onArticleChange={() => {}}
           autoPlayInterval={5000}
         />
-      </section>
-
-      {/* Athlete info bar - syncs with carousel */}
-      <section>
-        <AthleteInfoBar article={currentArticle} />
       </section>
 
       {/* Personalized header */}
@@ -96,6 +91,7 @@ export function HomePage() {
             {streak > 0 && <StreakBadge count={streak} className="ml-1" />}
           </p>
         </div>
+
         <div className="flex flex-wrap gap-2">
           <Link
             to="/settings"
@@ -104,6 +100,7 @@ export function HomePage() {
             <Settings className="h-4 w-4" />
             Edit interests
           </Link>
+
           <Link
             to="/explore"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50 transition-colors"
@@ -111,6 +108,7 @@ export function HomePage() {
             <Compass className="h-4 w-4" />
             Add follows
           </Link>
+
           <Link
             to="/saved"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
@@ -121,7 +119,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Since your last visit */}
+      {/* Since last visit */}
       {lastVisit && (
         <Card animate={false} className="border-cyan-500/20">
           <CardContent className="p-4">
@@ -141,7 +139,7 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* Your Athletes rail */}
+      {/* Athletes rail */}
       <section>
         <YourAthletes />
       </section>
@@ -151,16 +149,22 @@ export function HomePage() {
         <UpcomingRaces />
       </section>
 
-      {/* For You + Recent Results grid */}
+      {/* Results grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <section className="lg:col-span-2">
-          <SectionHeader title="For You" subtitle="News ranked by your interests and follows" />
-          <NewsFeed />
-        </section>
-        <section className="lg:col-span-1">
-          <RecentResults />
-        </section>
-      </div>
+  <section className="lg:col-span-2">
+    <SectionHeader title="For You" subtitle="News ranked by your interests and follows" />
+
+    <NewsFeed onArticlesChange={setLatestNewsArticles} />
+  </section>
+
+  <section className="lg:col-span-1">
+    <RecentResults />
+  </section>
+
+  <section className="lg:col-span-3">
+    <AthleteInfoBar articles={latestNewsArticles} />
+  </section>
+</div>
 
       {/* Explore Next */}
       <section>
@@ -173,6 +177,7 @@ export function HomePage() {
             </Link>
           }
         />
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {suggestedLanes.map((lane) => (
             <Link key={lane.id} to={`/explore/${lane.id}`}>
