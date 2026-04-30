@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * Onboarding wizard: 4 steps. Persists via useUser().completeOnboarding().
+ */
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -79,9 +82,24 @@ export function OnboardingPage() {
   const [selectedEvents, setSelectedEvents] = useState([]);
     
   const [digestPreference, setDigestPreference] = useState<DigestPreference>('weekly');
-  const [strokePreference, setStrokePreference] = useState<StrokePreference[]>([])
+
+  const [recommendedEvents, setRecommendedEvents] = useState<SwimEvent[]>([]);
 
   const steps = ['Welcome', 'Lane', 'Athletes', 'Events', 'Digest'];
+
+  useEffect(() => {
+    let cancelled = false;
+    getEvents()
+      .then((evs) => {
+        if (cancelled) return;
+        setRecommendedEvents(evs.slice(0, 3));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRecommendedEvents([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const toggleGoal = (g: OnboardingGoal) => {
     setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));

@@ -82,6 +82,8 @@ export class ApiUserRepository implements IUserRepository {
     await apiPatch('/me', {
       ...(partial.displayName !== undefined && { displayName: partial.displayName }),
       ...(partial.digestPreference !== undefined && { digestPreference: partial.digestPreference }),
+      ...(partial.goals !== undefined && { goals: partial.goals }),
+      ...(partial.interests !== undefined && { interests: partial.interests }),
     }, await this.tok());
   }
 }

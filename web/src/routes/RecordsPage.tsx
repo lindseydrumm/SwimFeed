@@ -3,9 +3,9 @@ import { Trophy, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { getRankings, getRecords, type Ranking, type Record as WRecord } from '../api/rankings';
-import { getAthletes } from '../api/athletes';
+import { getAthletesByExtIds, type AthleteSlugMapping } from '../api/athletes';
 
-// Stroke display order and labels
+// ── constants ────────────────────────────────────────────────────────
 const STROKE_ORDER = ['FREESTYLE', 'BACKSTROKE', 'BREASTSTROKE', 'BUTTERFLY', 'MEDLEY'] as const;
 const STROKE_LABELS: Record<string, string> = {
   FREESTYLE: 'Freestyle',
@@ -25,54 +25,31 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** Group records by stroke then distance, preserving the canonical order. */
-function groupByEvent<T extends { stroke: string; distance: number }>(items: T[]) {
-  const map = new Map<string, T[]>();
-  for (const s of STROKE_ORDER) {
-    for (const item of items) {
-      if (item.stroke !== s) continue;
-      const key = `${s}-${item.distance}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-  }
-  // sort each group by distance
-  const out: { key: string; stroke: string; distance: number; items: T[] }[] = [];
-  for (const [key, group] of map) {
-    group.sort((a, b) => a.distance - b.distance);
-    out.push({ key, stroke: group[0].stroke, distance: group[0].distance, items: group });
-  }
-  return out;
+/** Order records by stroke group then distance. */
+function orderByEvent<T extends { stroke: string; distance: number }>(items: T[]): T[] {
+  const strokeIdx = Object.fromEntries(STROKE_ORDER.map((s, i) => [s, i]));
+  return [...items].sort(
+    (a, b) => (strokeIdx[a.stroke] ?? 99) - (strokeIdx[b.stroke] ?? 99) || a.distance - b.distance,
+  );
 }
 
-// Slug cache so we only resolve once per athlete name
-const slugCache = new Map<string, string | null>();
-
-async function resolveSlug(name: string): Promise<string | null> {
-  if (slugCache.has(name)) return slugCache.get(name)!;
-  try {
-    const res = await getAthletes({ q: name, limit: 1 });
-    const slug = res?.athletes?.[0]?.slug ?? null;
-    slugCache.set(name, slug);
-    return slug;
-  } catch {
-    slugCache.set(name, null);
-    return null;
-  }
-}
-
-function AthleteLink({ name }: { name: string }) {
-  const [slug, setSlug] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-    resolveSlug(name).then((s) => { if (!cancelled) setSlug(s); });
-    return () => { cancelled = true; };
-  }, [name]);
-
-  if (slug) {
+// ── athlete link ─────────────────────────────────────────────────────
+function AthleteLink({
+  name,
+  extId,
+  slugMap,
+}: {
+  name: string;
+  extId: number;
+  slugMap: Map<number, AthleteSlugMapping>;
+}) {
+  const mapping = slugMap.get(extId);
+  if (mapping) {
     return (
-      <Link to={`/athletes/${slug}`} className="text-white font-medium hover:text-cyan-400 transition-colors">
+      <Link
+        to={`/athletes/${mapping.slug}`}
+        className="text-white font-medium hover:text-cyan-400 transition-colors"
+      >
         {name}
       </Link>
     );
@@ -80,7 +57,16 @@ function AthleteLink({ name }: { name: string }) {
   return <span className="text-white font-medium">{name}</span>;
 }
 
-function RankingRow({ r, index }: { r: Ranking; index: number }) {
+// ── ranking sub-row ──────────────────────────────────────────────────
+function RankingRow({
+  r,
+  index,
+  slugMap,
+}: {
+  r: Ranking;
+  index: number;
+  slugMap: Map<number, AthleteSlugMapping>;
+}) {
   return (
     <motion.tr
       initial={{ opacity: 0, y: -4 }}
@@ -94,7 +80,7 @@ function RankingRow({ r, index }: { r: Ranking; index: number }) {
         <span className="text-cyan-400 font-mono">{r.time}</span>
       </td>
       <td className="px-6 py-3">
-        <AthleteLink name={r.athlete_name} />
+        <AthleteLink name={r.athlete_name} extId={r.athlete_ext_id} slugMap={slugMap} />
         {r.country_code && <span className="ml-2 text-slate-500 text-sm">{r.country_code}</span>}
       </td>
       <td className="px-6 py-3 text-slate-400 text-sm">{formatDate(r.result_date)}</td>
@@ -103,19 +89,21 @@ function RankingRow({ r, index }: { r: Ranking; index: number }) {
   );
 }
 
+// ── event row (record + expandable top-10) ───────────────────────────
 function EventRow({
   record,
   rankings,
+  slugMap,
 }: {
   record: WRecord;
   rankings: Ranking[];
+  slugMap: Map<number, AthleteSlugMapping>;
 }) {
   const [open, setOpen] = useState(false);
   const label = eventLabel(record.distance, record.stroke);
 
   return (
     <>
-      {/* World record row — always visible */}
       <motion.tr
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -140,8 +128,10 @@ function EventRow({
           <span className="text-amber-400 font-mono text-lg">{record.time}</span>
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
-          <AthleteLink name={record.athlete_name} />
-          {record.country_code && <span className="ml-2 text-slate-500 text-sm">{record.country_code}</span>}
+          <AthleteLink name={record.athlete_name} extId={record.athlete_ext_id} slugMap={slugMap} />
+          {record.country_code && (
+            <span className="ml-2 text-slate-500 text-sm">{record.country_code}</span>
+          )}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-slate-300 text-sm">
           {formatDate(record.result_date)}
@@ -149,7 +139,6 @@ function EventRow({
         <td className="px-6 py-4 text-slate-300 text-sm">{record.event_city ?? '—'}</td>
       </motion.tr>
 
-      {/* Expandable top-10 rankings */}
       <AnimatePresence>
         {open && rankings.length > 0 && (
           <tr>
@@ -161,7 +150,7 @@ function EventRow({
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="bg-slate-850 border-y border-slate-700/50">
+                <div className="border-y border-slate-700/50">
                   <div className="px-6 py-2 bg-slate-900/60">
                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       All-Time Top {rankings.length} — {label}
@@ -170,7 +159,7 @@ function EventRow({
                   <table className="w-full">
                     <tbody className="divide-y divide-slate-700/30">
                       {rankings.map((r, i) => (
-                        <RankingRow key={r.id} r={r} index={i} />
+                        <RankingRow key={r.id} r={r} index={i} slugMap={slugMap} />
                       ))}
                     </tbody>
                   </table>
@@ -184,6 +173,7 @@ function EventRow({
   );
 }
 
+// ── page ──────────────────────────────────────────────────────────────
 export function RecordsPage() {
   const [gender, setGender] = useState<'M' | 'F'>('M');
   const [pool, setPool] = useState<'LCM' | 'SCM'>('LCM');
@@ -192,9 +182,10 @@ export function RecordsPage() {
 
   const [records, setRecords] = useState<WRecord[]>([]);
   const [rankings, setRankings] = useState<Ranking[]>([]);
+  const [slugMap, setSlugMap] = useState<Map<number, AthleteSlugMapping>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  // Fetch records + rankings whenever filters change
+  // Fetch records + rankings + slug mappings whenever filters change
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -204,9 +195,22 @@ export function RecordsPage() {
           getRecords({ gender, pool }),
           getRankings({ gender, pool, ranking_type: rankingType }),
         ]);
-        if (!cancelled) {
-          setRecords(rec);
-          setRankings(rank);
+        if (cancelled) return;
+        setRecords(rec);
+        setRankings(rank);
+
+        // Collect all unique athlete external_ids and batch-resolve slugs
+        const extIds = new Set<number>();
+        for (const r of rec) extIds.add(r.athlete_ext_id);
+        for (const r of rank) extIds.add(r.athlete_ext_id);
+
+        if (extIds.size > 0) {
+          const mappings = await getAthletesByExtIds([...extIds]);
+          if (!cancelled) {
+            const map = new Map<number, AthleteSlugMapping>();
+            for (const m of mappings) map.set(m.external_id, m);
+            setSlugMap(map);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch records/rankings', err);
@@ -214,10 +218,12 @@ export function RecordsPage() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [gender, pool, rankingType]);
 
-  // Group rankings by event key for quick lookup
+  // Group rankings by event key
   const rankingsByEvent = useMemo(() => {
     const map = new Map<string, Ranking[]>();
     for (const r of rankings) {
@@ -225,24 +231,20 @@ export function RecordsPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
-    // sort each by rank
     for (const arr of map.values()) arr.sort((a, b) => a.rank - b.rank);
     return map;
   }, [rankings]);
 
-  // Order records by stroke order then distance
-  const orderedRecords = useMemo(() => {
-    const groups = groupByEvent(records);
-    return groups.map((g) => g.items[0]); // one record per event
-  }, [records]);
+  const orderedRecords = useMemo(() => orderByEvent(records), [records]);
 
   const filtered = useMemo(() => {
     if (!searchTerm) return orderedRecords;
     const q = searchTerm.toLowerCase();
-    return orderedRecords.filter((r) =>
-      eventLabel(r.distance, r.stroke).toLowerCase().includes(q) ||
-      r.athlete_name.toLowerCase().includes(q) ||
-      (r.country_code ?? '').toLowerCase().includes(q)
+    return orderedRecords.filter(
+      (r) =>
+        eventLabel(r.distance, r.stroke).toLowerCase().includes(q) ||
+        r.athlete_name.toLowerCase().includes(q) ||
+        (r.country_code ?? '').toLowerCase().includes(q),
     );
   }, [orderedRecords, searchTerm]);
 
@@ -265,7 +267,6 @@ export function RecordsPage() {
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          {/* Gender */}
           {(['M', 'F'] as const).map((g) => (
             <button
               key={g}
@@ -280,10 +281,8 @@ export function RecordsPage() {
             </button>
           ))}
 
-          {/* Divider */}
           <div className="w-px bg-slate-700 mx-1 hidden sm:block" />
 
-          {/* Pool */}
           {(['LCM', 'SCM'] as const).map((p) => (
             <button
               key={p}
@@ -300,7 +299,6 @@ export function RecordsPage() {
 
           <div className="w-px bg-slate-700 mx-1 hidden sm:block" />
 
-          {/* Ranking type */}
           {(['alltime', 'current'] as const).map((t) => (
             <button
               key={t}
@@ -316,7 +314,6 @@ export function RecordsPage() {
           ))}
         </div>
 
-        {/* Search */}
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           <input
@@ -337,7 +334,10 @@ export function RecordsPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-slate-500">
           <Trophy className="h-12 w-12 mb-4 opacity-50" />
-          <p>No records found{searchTerm ? ' matching your search' : ' — run the rankings scraper first'}</p>
+          <p>
+            No records found
+            {searchTerm ? ' matching your search' : ' — run the rankings scraper first'}
+          </p>
         </div>
       ) : (
         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
@@ -345,11 +345,21 @@ export function RecordsPage() {
             <table className="w-full">
               <thead className="bg-slate-900 border-b border-slate-700">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Event</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Athlete</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Event
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Time
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Athlete
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Location
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
@@ -360,6 +370,7 @@ export function RecordsPage() {
                       key={eventKey}
                       record={record}
                       rankings={rankingsByEvent.get(eventKey) ?? []}
+                      slugMap={slugMap}
                     />
                   );
                 })}

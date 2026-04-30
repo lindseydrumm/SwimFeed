@@ -19,18 +19,42 @@ CREATE TABLE IF NOT EXISTS users (
 );
 -- --------------- athletes ---------------
 CREATE TABLE IF NOT EXISTS athletes (
-    id            SERIAL PRIMARY KEY,
-    slug          TEXT UNIQUE NOT NULL,
-    external_id   INTEGER UNIQUE NOT NULL,
-    name          TEXT NOT NULL,
-    country       TEXT,
-    flag          TEXT,
-    strokes       TEXT,
-    bio           TEXT,
-    medals        INTEGER,
-    world_records INTEGER,
-    world_rank    INTEGER,
-    img           TEXT
+    id              SERIAL PRIMARY KEY,
+    slug            TEXT UNIQUE NOT NULL,
+    external_id     INTEGER UNIQUE NOT NULL,
+    name            TEXT NOT NULL,
+    country         TEXT,
+    flag            TEXT,
+    strokes         TEXT,
+    bio             TEXT,
+    medals          INTEGER,
+    world_records   INTEGER,
+    world_rank      INTEGER,
+    img             TEXT,
+    gender          TEXT,
+    date_of_birth   DATE,
+    gold_medals     INTEGER,
+    silver_medals   INTEGER,
+    bronze_medals   INTEGER,
+    discipline      TEXT,
+    height          TEXT,
+    coach           TEXT,
+    club            TEXT,
+    detail_scraped_at TIMESTAMPTZ
+);
+-- --------------- athlete_personal_bests --
+CREATE TABLE IF NOT EXISTS athlete_personal_bests (
+    id              SERIAL PRIMARY KEY,
+    athlete_ext_id  INTEGER NOT NULL,
+    event           TEXT NOT NULL,
+    time            TEXT NOT NULL,
+    medal           TEXT,
+    pool_length     TEXT,
+    age             INTEGER,
+    competition     TEXT,
+    comp_country    TEXT,
+    result_date     TEXT,
+    UNIQUE (athlete_ext_id, event, pool_length)
 );
 -- --------------- articles ---------------
 CREATE TABLE IF NOT EXISTS articles (

@@ -4,13 +4,13 @@
  * smooth transitions. Falls back to static swimming imagery when
  * the API is unavailable or returns no data.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
 import { getArticles } from '../src/api/articles';
 import type { Article } from '../src/types/domain';
 
-// --- Static fallback slides (used when API fails or returns empty) ---
+// Static fallback slides (used when API fails or returns empty)
 const fallbackSlides = [
   {
     title: 'Olympic Dreams',
@@ -49,6 +49,7 @@ const fallbackSlides = [
 const POOL_IMAGES = [
   'https://images.unsplash.com/photo-1530549387789-4c1017266635?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1559827260-dc66d52bef19?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
 ];
 
 interface Slide {
@@ -56,91 +57,127 @@ interface Slide {
   subtitle: string;
   imageUrl: string;
   url: string | null;
+  article?: Article;
 }
 
-// --- Helpers ---
+interface FeaturedCarouselProps {
+  onArticleChange?: (article: Article | null) => void;
+  autoPlayInterval?: number; // New prop for custom auto-play speed
+}
 
-/** Extract the first <img src> from an HTML string (RSS summary). */
+// Extract the first <img src> from an HTML string (RSS summary)
 function extractImageFromHtml(html: string | null): string | null {
   if (!html) return null;
   const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
   return match ? match[1] : null;
 }
 
-/** Strip HTML tags to produce plain subtitle text. */
+// Strip HTML tags to produce plain subtitle text
 function stripHtml(html: string | null): string {
   if (!html) return '';
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
-/** Turn an Article into a carousel Slide. */
+// Turn an Article into a carousel Slide
 function articleToSlide(article: Article, index: number): Slide {
   const image = extractImageFromHtml(article.summary);
   return {
-    title: article.title,
+    title: article.title.length > 80 ? article.title.slice(0, 77) + '...' : article.title,
     subtitle: article.source
       ? `${article.source}${article.published_at ? ' · ' + new Date(article.published_at).toLocaleDateString() : ''}`
-      : stripHtml(article.summary).slice(0, 120) || '',
+      : stripHtml(article.summary).slice(0, 120) || 'Latest swimming news',
     imageUrl: image ?? POOL_IMAGES[index % POOL_IMAGES.length],
     url: article.url,
+    article,
   };
 }
 
 const MAX_SLIDES = 5;
 
-export function FeaturedCarousel() {
+export function FeaturedCarousel({ onArticleChange, autoPlayInterval = 5000 }: FeaturedCarouselProps) {
   const [slides, setSlides] = useState<Slide[]>(fallbackSlides);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [direction, setDirection] = useState(0); // -1 = left, 1 = right
 
-  // TODO: Select articles based on personalisation
+  // Fetch articles from API
   useEffect(() => {
     let cancelled = false;
+
     getArticles()
       .then((data) => {
         if (cancelled) return;
         if (data.length > 0) {
           setSlides(data.slice(0, MAX_SLIDES).map(articleToSlide));
         }
-        // else keep fallback slides
       })
       .catch(() => {
-        // keep fallback slides on error
+        // Keep fallback slides on error
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Auto-play
+  // Auto-play logic
   useEffect(() => {
-    if (isPaused || loading) return;
+    if (isPaused || loading || slides.length <= 1) return;
+
     const interval = setInterval(() => {
+      setDirection(1);
       setCurrentIndex((prev) => (prev + 1) % slides.length);
-    }, 5000);
+    }, autoPlayInterval);
+
     return () => clearInterval(interval);
-  }, [isPaused, loading, slides.length]);
+  }, [isPaused, loading, slides.length, autoPlayInterval]);
 
   // Reset index if slides change
   useEffect(() => {
     setCurrentIndex(0);
   }, [slides]);
 
-  const goToSlide = (index: number) => {
+  // Navigation handlers
+  const goToSlide = useCallback((index: number) => {
+    const delta = index > currentIndex ? 1 : -1;
+    setDirection(delta);
     setCurrentIndex(index);
-  };
+  }, [currentIndex]);
 
-  const goToPrevious = () => {
+  const goToPrevious = useCallback(() => {
+    setDirection(-1);
     setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
-  };
+  }, [slides.length]);
 
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
+    setDirection(1);
     setCurrentIndex((prev) => (prev + 1) % slides.length);
-  };
+  }, [slides.length]);
 
+  // Notify parent of article change
   const current = slides[currentIndex];
+  useEffect(() => {
+    onArticleChange?.(current.article ?? null);
+  }, [current, onArticleChange]);
+
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 1000 : -1000,
+      opacity: 0
+    }),
+    center: {
+      x: 0,
+      opacity: 1
+    },
+    exit: (direction: number) => ({
+      x: direction > 0 ? -1000 : 1000,
+      opacity: 0
+    })
+  };
 
   const inner = (
     <div
@@ -154,12 +191,14 @@ export function FeaturedCarousel() {
         </div>
       ) : (
         <>
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={currentIndex}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -100 }}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
               transition={{ duration: 0.5, ease: 'easeInOut' }}
               className="absolute inset-0"
             >
@@ -175,7 +214,7 @@ export function FeaturedCarousel() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  <h2 className="text-2xl md:text-4xl font-bold text-white mb-2">
+                  <h2 className="text-2xl md:text-4xl font-bold text-white mb-2 line-clamp-2">
                     {current.title}
                   </h2>
                   <p className="text-lg md:text-xl text-slate-300 font-light flex items-center gap-2">
@@ -192,7 +231,11 @@ export function FeaturedCarousel() {
           {/* Navigation arrows */}
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToPrevious(); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goToPrevious();
+            }}
             className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-900/60 backdrop-blur-sm text-white hover:bg-slate-900/80 transition-all opacity-0 group-hover:opacity-100 z-10"
             aria-label="Previous slide"
           >
@@ -200,7 +243,11 @@ export function FeaturedCarousel() {
           </button>
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToNext(); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goToNext();
+            }}
             className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-900/60 backdrop-blur-sm text-white hover:bg-slate-900/80 transition-all opacity-0 group-hover:opacity-100 z-10"
             aria-label="Next slide"
           >
@@ -213,8 +260,12 @@ export function FeaturedCarousel() {
               <button
                 key={index}
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToSlide(index); }}
-                className={`h-2 rounded-full transition-all ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  goToSlide(index);
+                }}
+                className={`h-2 rounded-full transition-all duration-300 ${
                   index === currentIndex
                     ? 'w-8 bg-cyan-400'
                     : 'w-2 bg-white/40 hover:bg-white/60'
@@ -223,12 +274,23 @@ export function FeaturedCarousel() {
               />
             ))}
           </div>
+
+          {/* Progress bar for auto-play */}
+          {!isPaused && !loading && slides.length > 1 && (
+            <motion.div
+              className="absolute bottom-0 left-0 h-1 bg-cyan-400/50 z-10"
+              initial={{ width: '0%' }}
+              animate={{ width: '100%' }}
+              transition={{ duration: autoPlayInterval / 1000, ease: 'linear' }}
+              key={currentIndex}
+            />
+          )}
         </>
       )}
     </div>
   );
 
-  // If the current slide has a URL, wrap the whole thing in a link
+  // Wrap with link if article has URL
   if (!loading && current.url) {
     return (
       <a href={current.url} target="_blank" rel="noopener noreferrer" className="block">
