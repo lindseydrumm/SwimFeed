@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { useUser } from '../store/UserStore';
 import { useGuestGate } from '../hooks/useGuestGate';
-import type { DigestPreference } from '../types/domain';
+import type { DigestPreference, OnboardingGoal } from '../types/domain';
 import { RotateCcw, Trash2 } from 'lucide-react';
 
 const DIGEST_OPTIONS: { value: DigestPreference; label: string }[] = [
@@ -15,15 +15,55 @@ const DIGEST_OPTIONS: { value: DigestPreference; label: string }[] = [
   { value: 'big_news_only', label: 'Big news only' },
 ];
 
+const GOALS: { value: OnboardingGoal; label: string }[] = [
+  { value: 'news', label: 'News & stories' },
+  { value: 'events', label: 'Events & meets' },
+  { value: 'athletes', label: 'Athletes' },
+  { value: 'training', label: 'Training & technique' },
+];
+
+const INTEREST_CHIPS = {
+  strokes: ['Freestyle', 'Backstroke', 'Breaststroke', 'Butterfly', 'IM'],
+  distances: ['Sprint (50–100)', 'Middle (200–400)', 'Distance (800+)', 'Open water'],
+  countries: ['USA', 'AUS', 'GBR', 'FRA', 'CAN', 'CHN', 'ROU', 'HUN'],
+  topics: ['Olympics', 'Worlds', 'NCAA', 'Technique', 'Records', 'Interviews'],
+} as const;
+
 export function SettingsPage() {
   const navigate = useNavigate();
   const { state, updateProfile, unfollow, resetProfile } = useUser();
   const { isGuest, requireAuth } = useGuestGate();
   const [displayName, setDisplayName] = useState(state?.profile?.displayName ?? '');
   const [digest, setDigest] = useState<DigestPreference>(state?.profile?.digestPreference ?? 'weekly');
+  const [goals, setGoals] = useState<OnboardingGoal[]>(state?.profile?.goals ?? []);
+  const [interests, setInterests] = useState<Record<string, string[]>>(state?.profile?.interests ?? {});
 
   const handleSaveProfile = () => {
-    requireAuth(() => updateProfile({ displayName, digestPreference: digest }));
+    requireAuth(() =>
+      updateProfile({
+        displayName,
+        digestPreference: digest,
+        goals,
+        interests: {
+          strokes: interests.strokes ?? [],
+          distances: interests.distances ?? [],
+          countries: interests.countries ?? [],
+          topics: interests.topics ?? [],
+        },
+      })
+    );
+  };
+
+  const toggleGoal = (g: OnboardingGoal) => {
+    setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
+  };
+
+  const toggleInterest = (category: keyof typeof INTEREST_CHIPS, value: string) => {
+    setInterests((prev) => {
+      const list = (prev[category] ?? []) as string[];
+      const next = list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
+      return { ...prev, [category]: next };
+    });
   };
 
   const handleRestartOnboarding = async () => {
@@ -70,6 +110,51 @@ export function SettingsPage() {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="block text-slate-400 text-sm mb-2">Goals</label>
+            <div className="flex flex-wrap gap-2">
+              {GOALS.map((g) => (
+                <button
+                  key={g.value}
+                  type="button"
+                  onClick={() => toggleGoal(g.value)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    goals.includes(g.value)
+                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                      : 'bg-slate-800 border border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-slate-400 text-sm mb-2">Interests</label>
+            <div className="space-y-4">
+              {(Object.keys(INTEREST_CHIPS) as (keyof typeof INTEREST_CHIPS)[]).map((cat) => (
+                <div key={cat}>
+                  <p className="text-slate-500 text-xs uppercase mb-2">{cat}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {INTEREST_CHIPS[cat].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => toggleInterest(cat, val)}
+                        className={`px-3 py-1.5 rounded-full text-sm ${
+                          ((interests[cat] ?? []) as string[]).includes(val)
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                            : 'bg-slate-800 border border-slate-700 text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
           <button
             type="button"

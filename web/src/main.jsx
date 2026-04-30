@@ -7,6 +7,8 @@ import App from './App'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? ''
 
+console.log('CLERK KEY:', PUBLISHABLE_KEY);
+
 const clerkAppearance = {
   variables: {
     colorBackground: '#0f172a',
@@ -40,4 +42,4 @@ createRoot(document.getElementById('root')).render(
       </BrowserRouter>
     </ClerkProvider>
   </StrictMode>,
-)
+);
