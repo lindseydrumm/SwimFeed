@@ -1,21 +1,20 @@
 /**
- * My Feed dashboard: personalized header, Since last visit, For You, Because you follow, Watchlist, Continue Reading, Explore Next.
+ * My Feed dashboard: featured carousel, personalized header, Since last visit,
+ * Your Athletes, Upcoming Races, infinite-scroll news feed, Recent Results.
  */
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
-import { SectionHeader } from '../../components/SectionHeader';
 import { StreakBadge } from '../../components/StreakBadge';
 import { useUser } from '../store/UserStore';
 import { useGuestGate } from '../hooks/useGuestGate';
 import { YourAthletes } from '../../components/YourAthletes';
 import { UpcomingRaces } from '../../components/UpcomingRaces';
-import { NewsFeed } from '../../components/NewsFeed';
+import { NewsFeedInfinite } from '../../components/NewsFeedInfinite';
 import { RecentResults } from '../../components/RecentResults';
 import { FeaturedCarousel } from '../../components/FeaturedCarousel';
 import { AthleteInfoBar } from '../../components/AthleteInfoBar';
-import { exploreLanes } from '../data/lanes';
-import { Sparkles, Settings, Bookmark, Compass } from 'lucide-react';
+import { Sparkles, Settings, Bookmark } from 'lucide-react';
 import type { Article } from '../types/domain';
 
 export function HomePage() {
@@ -45,14 +44,12 @@ export function HomePage() {
     else setNewSinceCount(null);
   }, [lastVisit]);
 
-  const suggestedLanes = exploreLanes.slice(0, 3);
-
   return (
     <div className="space-y-8">
       {/* Featured carousel - passes current article to athlete info bar */}
       <section>
-        <FeaturedCarousel 
-          onArticleChange={setCurrentArticle} 
+        <FeaturedCarousel
+          onArticleChange={setCurrentArticle}
           autoPlayInterval={5000}
         />
       </section>
@@ -90,7 +87,7 @@ export function HomePage() {
                 eventCount === 0 &&
                 topicCount === 0 &&
                 storylineCount === 0 &&
-                ' — add some in Explore or Settings'}
+                ' — add some in Settings'}
               .
             </span>
             {streak > 0 && <StreakBadge count={streak} className="ml-1" />}
@@ -103,13 +100,6 @@ export function HomePage() {
           >
             <Settings className="h-4 w-4" />
             Edit interests
-          </Link>
-          <Link
-            to="/explore"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50 transition-colors"
-          >
-            <Compass className="h-4 w-4" />
-            Add follows
           </Link>
           <Link
             to="/saved"
@@ -151,51 +141,15 @@ export function HomePage() {
         <UpcomingRaces />
       </section>
 
-      {/* For You + Recent Results grid */}
+      {/* News feed (full-width) + Recent Results sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
-          <SectionHeader title="For You" subtitle="News ranked by your interests and follows" />
-          <NewsFeed />
+          <NewsFeedInfinite />
         </section>
         <section className="lg:col-span-1">
           <RecentResults />
         </section>
       </div>
-
-      {/* Explore Next */}
-      <section>
-        <SectionHeader
-          title="Explore Next"
-          subtitle="Pick a lane based on your interests"
-          action={
-            <Link to="/explore" className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
-              See all
-            </Link>
-          }
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {suggestedLanes.map((lane) => (
-            <Link key={lane.id} to={`/explore/${lane.id}`}>
-              <Card
-                animate={false}
-                className="h-full hover:border-cyan-500/30 transition-colors cursor-pointer overflow-hidden"
-              >
-                <div className="aspect-video bg-slate-800 relative">
-                  <img
-                    src={`https://images.unsplash.com/photo-${lane.imageId}?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80`}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover opacity-80"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <h3 className="font-semibold text-white text-sm">{lane.title}</h3>
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

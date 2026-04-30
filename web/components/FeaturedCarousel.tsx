@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
-import { getArticles } from '../src/api/articles';
+import { getArticlesPage } from '../src/api/articles';
 import type { Article } from '../src/types/domain';
 
 // Static fallback slides (used when API fails or returns empty)
@@ -105,11 +105,11 @@ export function FeaturedCarousel({ onArticleChange, autoPlayInterval = 5000 }: F
   useEffect(() => {
     let cancelled = false;
 
-    getArticles()
-      .then((data) => {
+    getArticlesPage({ limit: MAX_SLIDES })
+      .then((page) => {
         if (cancelled) return;
-        if (data.length > 0) {
-          setSlides(data.slice(0, MAX_SLIDES).map(articleToSlide));
+        if (page.articles.length > 0) {
+          setSlides(page.articles.map(articleToSlide));
         }
       })
       .catch(() => {

@@ -6,8 +6,6 @@ import { ThemeProvider } from './context/ThemeContext';
 import { OnboardingGuard } from './components/OnboardingGuard';
 import { HomePage } from './routes/HomePage';
 import { OnboardingPage } from './routes/OnboardingPage';
-import { ExplorePage } from './routes/ExplorePage';
-import { ExploreLanePage } from './routes/ExploreLanePage';
 import { StorylinesPage } from './routes/StorylinesPage';
 import { StorylineDetailPage } from './routes/StorylineDetailPage';
 import { SavedPage } from './routes/SavedPage';
@@ -62,8 +60,9 @@ export default function App() {
             <Route path="/events/:id" element={<EventDetailPage />} />
             <Route path="/athletes" element={<AthletesPage />} />
             <Route path="/athletes/:slug" element={<SwimmerPage />} />
-            <Route path="/explore" element={<ExplorePage />} />
-            <Route path="/explore/:laneId" element={<ExploreLanePage />} />
+            {/* Explore was removed; redirect legacy URLs to home. */}
+            <Route path="/explore" element={<Navigate to="/" replace />} />
+            <Route path="/explore/:laneId" element={<Navigate to="/" replace />} />
             <Route path="/storylines" element={<StorylinesPage />} />
             <Route path="/storylines/:id" element={<StorylineDetailPage />} />
             <Route path="/records" element={<RecordsPage />} />

@@ -1,5 +1,5 @@
 /**
- * Reading queue: saved articles. Filter seen/unseen. Uses useUser + getArticles for details.
+ * Reading queue: saved articles. Filter seen/unseen. Uses useUser + getArticlesPage for details.
  */
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { ArticleActions } from '../../components/ArticleActions';
 import { useUser } from '../store/UserStore';
 import { useGuestGate } from '../hooks/useGuestGate';
-import { getArticles } from '../api/articles';
+import { getArticlesPage } from '../api/articles';
 import type { Article } from '../api/articles';
 import { Bookmark } from 'lucide-react';
 
@@ -18,9 +18,11 @@ export function SavedPage() {
   const [loading, setLoading] = useState(true);
   const savedUrls = state?.contentState?.savedArticles ?? [];
 
+  // Pull a generous page so most saved articles resolve. (DB-side filter by
+  // saved IDs would be cleaner; current API doesn't support id-list filter.)
   useEffect(() => {
-    getArticles()
-      .then(setArticles)
+    getArticlesPage({ limit: 50 })
+      .then((page) => setArticles(page.articles))
       .catch(() => setArticles([]))
       .finally(() => setLoading(false));
   }, []);

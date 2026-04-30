@@ -526,14 +526,68 @@ def ingest_article(article: ArticleIn):
     return {"status": "ok"}
 
 
+# Topic -> keyword bundle. Matches against title + summary (ILIKE).
+# Keep keywords lowercase; ILIKE handles case folding via wildcards.
+ARTICLE_TOPIC_KEYWORDS: dict[str, list[str]] = {
+    "olympics": ["olympic", "olympics", "paris 2024", "los angeles 2028", "la28"],
+    "ncaa": ["ncaa", "college", "sec ", "big ten", "ivy", "pac-12", "acc "],
+    "world-champs": ["world championship", "world champs", "fina world", "world aquatics championship"],
+    "records": ["world record", "american record", "ncaa record", "broke the record", "broke a record"],
+    "us-nationals": ["u.s. nationals", "us nationals", "olympic trials", "usa swimming nationals", "national championships"],
+    "open-water": ["open water", "marathon swim", " 10k ", "ows"],
+}
+
+
 @app.get("/articles")
-def list_articles():
-    query = text("SELECT * FROM articles ORDER BY published_at DESC")
+def list_articles(
+    q: Optional[str] = Query(None, description="Case-insensitive search on title + summary"),
+    topic: Optional[str] = Query(None, description="Topic tag id (see ARTICLE_TOPIC_KEYWORDS)"),
+    cursor: Optional[str] = Query(None, description="ISO timestamp; returns rows older than this"),
+    limit: int = Query(20, ge=1, le=50, description="Page size"),
+):
+    """
+    Cursor-paginated article feed. Stable across new ingests:
+    rows older than `cursor` (published_at) are returned in DESC order.
+    Returns next_cursor=null when fewer than `limit` rows remain.
+    """
+    conditions: list[str] = []
+    params: dict = {"limit": limit}
+
+    if q:
+        conditions.append("(title ILIKE :q OR summary ILIKE :q)")
+        params["q"] = f"%{q}%"
+
+    if topic:
+        keywords = ARTICLE_TOPIC_KEYWORDS.get(topic)
+        if keywords:
+            topic_clauses = []
+            for i, kw in enumerate(keywords):
+                key = f"topic_kw_{i}"
+                topic_clauses.append(f"(title ILIKE :{key} OR summary ILIKE :{key})")
+                params[key] = f"%{kw}%"
+            conditions.append("(" + " OR ".join(topic_clauses) + ")")
+        # Unknown topic id => no extra filter (return everything matching q).
+
+    if cursor:
+        conditions.append("published_at < :cursor")
+        params["cursor"] = cursor
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    data_query = text(
+        f"SELECT * FROM articles {where} ORDER BY published_at DESC NULLS LAST LIMIT :limit"
+    )
 
     with engine.begin() as conn:
-        rows = conn.execute(query).mappings().all()
+        rows = conn.execute(data_query, params).mappings().all()
 
-    return rows
+    rows_list = [dict(r) for r in rows]
+    next_cursor = None
+    if len(rows_list) == limit:
+        last_pub = rows_list[-1].get("published_at")
+        if last_pub is not None:
+            next_cursor = last_pub.isoformat() if hasattr(last_pub, "isoformat") else str(last_pub)
+
+    return {"articles": rows_list, "next_cursor": next_cursor}
 
 
 ###################################
