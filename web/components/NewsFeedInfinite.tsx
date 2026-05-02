@@ -51,7 +51,15 @@ function formatDate(iso?: string | null): string {
 
 // --- Component ---
 
-export function NewsFeedInfinite() {
+interface NewsFeedInfiniteProps {
+  /**
+   * Called whenever the loaded article list changes. Used by AthleteInfoBar
+   * to surface athletes mentioned in current news.
+   */
+  onArticlesChange?: (articles: Article[]) => void;
+}
+
+export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {}) {
   // Search & filter state
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -71,6 +79,11 @@ export function NewsFeedInfinite() {
 
   // Track current request so out-of-order responses don't overwrite fresh state.
   const requestIdRef = useRef(0);
+
+  // Notify parent whenever the article list updates.
+  useEffect(() => {
+    onArticlesChange?.(articles);
+  }, [articles, onArticlesChange]);
 
   // The sticky header should only auto-hide *after* the user has actually
   // scrolled past it (i.e. it's pinned). Until then, keep it visible so the

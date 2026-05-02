@@ -1,6 +1,7 @@
 /**
  * My Feed dashboard: featured carousel, personalized header, Since last visit,
- * Your Athletes, Upcoming Races, infinite-scroll news feed, Recent Results.
+ * Your Athletes, Upcoming Races, infinite-scroll news feed, Recent Results,
+ * and AthleteInfoBar driven by the loaded news articles.
  */
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -15,13 +16,14 @@ import { RecentResults } from '../../components/RecentResults';
 import { FeaturedCarousel } from '../../components/FeaturedCarousel';
 import { AthleteInfoBar } from '../../components/AthleteInfoBar';
 import { Sparkles, Settings, Bookmark } from 'lucide-react';
-import type { Article } from '../types/domain';
+import type { Article } from '../api/articles';
 
 export function HomePage() {
   const { state, touchVisit, ready } = useUser();
   const { isGuest } = useGuestGate();
+
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
-  const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
+  const [latestNewsArticles, setLatestNewsArticles] = useState<Article[]>([]);
 
   // Touch visit when user is authenticated
   useEffect(() => {
@@ -46,17 +48,12 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Featured carousel - passes current article to athlete info bar */}
+      {/* Featured carousel */}
       <section>
         <FeaturedCarousel
-          onArticleChange={setCurrentArticle}
+          onArticleChange={() => {}}
           autoPlayInterval={5000}
         />
-      </section>
-
-      {/* Athlete info bar - syncs with carousel */}
-      <section>
-        <AthleteInfoBar article={currentArticle} />
       </section>
 
       {/* Personalized header */}
@@ -93,6 +90,7 @@ export function HomePage() {
             {streak > 0 && <StreakBadge count={streak} className="ml-1" />}
           </p>
         </div>
+
         <div className="flex flex-wrap gap-2">
           <Link
             to="/settings"
@@ -111,7 +109,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Since your last visit */}
+      {/* Since last visit */}
       {lastVisit && (
         <Card animate={false} className="border-cyan-500/20">
           <CardContent className="p-4">
@@ -131,7 +129,7 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* Your Athletes rail */}
+      {/* Athletes rail */}
       <section>
         <YourAthletes />
       </section>
@@ -141,13 +139,18 @@ export function HomePage() {
         <UpcomingRaces />
       </section>
 
-      {/* News feed (full-width) + Recent Results sidebar */}
+      {/* News feed (full-width) + Recent Results sidebar + AthleteInfoBar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
-          <NewsFeedInfinite />
+          <NewsFeedInfinite onArticlesChange={setLatestNewsArticles} />
         </section>
+
         <section className="lg:col-span-1">
           <RecentResults />
+        </section>
+
+        <section className="lg:col-span-3">
+          <AthleteInfoBar articles={latestNewsArticles} />
         </section>
       </div>
     </div>

@@ -1,228 +1,294 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import type { Article } from '../src/types/domain';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ExternalLink, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { Athlete } from '../src/api/athletes';
 import { getAthletes } from '../src/api/athletes';
-import { ExternalLink, Medal, Trophy, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+
+type ArticleLike = {
+  id?: number | string;
+  title: string;
+  url?: string | null;
+  published_at?: string | null;
+  summary?: string | null;
+  source?: string | null;
+};
 
 interface AthleteInfoBarProps {
-  article: Article | null;
+  articles: ArticleLike[];
 }
 
-// Helper: Strip HTML tags from string
+type AthleteLike = {
+  name: string;
+  slug?: string;
+  country?: string;
+  img?: string;
+  image?: string;
+  image_url?: string;
+  photo?: string;
+  photo_url?: string;
+  headshot?: string;
+  headshot_url?: string;
+};
+
+type AthleteNewsMatch = {
+  athlete: AthleteLike;
+  article: ArticleLike;
+};
+
+const fallbackAthletes: AthleteLike[] = [
+  {
+    name: 'Léon Marchand',
+    slug: 'leon-marchand',
+    country: 'France',
+  },
+  {
+    name: 'Leon Marchand',
+    slug: 'leon-marchand',
+    country: 'France',
+  },
+  {
+    name: 'Summer McIntosh',
+    slug: 'summer-mcintosh',
+    country: 'Canada',
+  },
+  {
+    name: 'Katie Ledecky',
+    slug: 'katie-ledecky',
+    country: 'United States',
+  },
+  {
+    name: 'Caeleb Dressel',
+    slug: 'caeleb-dressel',
+    country: 'United States',
+  },
+];
+
 function stripHtml(html: string | null | undefined): string {
   if (!html) return '';
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// Extract potential athlete names from article title and summary
-function extractPotentialAthleteNames(article: Article | null): string[] {
-  if (!article) return [];
-  
-  const text = `${article.title ?? ''} ${stripHtml(article.summary)}`.toLowerCase();
-  
-  // Common swimmer name patterns
-  const patterns = [
-    // Full name pattern (Katie Ledecky, Caeleb Dressel)
-    /\b([A-Z][a-z]+ [A-Z][a-z]+)\b/g,
-    // Last name pattern (Ledecky, Dressel)
-    /\b([A-Z][a-z]{3,})\b/g,
-  ];
-  
-  const matches = new Set<string>();
-  for (const pattern of patterns) {
-    const matches_iter = text.matchAll(pattern);
-    for (const match of matches_iter) {
-      matches.add(match[1].toLowerCase());
-    }
-  }
-  
-  return Array.from(matches);
+function normalizeText(value: string | null | undefined): string {
+  return stripHtml(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
-export function AthleteInfoBar({ article }: AthleteInfoBarProps) {
-  const [matchedAthlete, setMatchedAthlete] = useState<Athlete | null>(null);
+function getArticleText(article: ArticleLike): string {
+  return normalizeText(`${article.title ?? ''} ${article.summary ?? ''}`);
+}
+
+function getAvatarUrl(name: string): string {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name
+  )}&background=0f172a&color=22d3ee&bold=true`;
+}
+
+function getAthleteImage(athlete: AthleteLike): string {
+  return (
+    athlete.img ||
+    athlete.image ||
+    athlete.image_url ||
+    athlete.photo ||
+    athlete.photo_url ||
+    athlete.headshot ||
+    athlete.headshot_url ||
+    getAvatarUrl(athlete.name)
+  );
+}
+
+function uniqueAthletes(athletes: AthleteLike[]): AthleteLike[] {
+  const seen = new Set<string>();
+
+  return athletes.filter((athlete) => {
+    const key = normalizeText(athlete.name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function findAthleteMatches(
+  articles: ArticleLike[],
+  athletes: AthleteLike[]
+): AthleteNewsMatch[] {
+  const matches: AthleteNewsMatch[] = [];
+  const seenAthletes = new Set<string>();
+
+  for (const article of articles) {
+    const articleText = getArticleText(article);
+
+    for (const athlete of athletes) {
+      const athleteName = normalizeText(athlete.name);
+      const nameParts = athleteName.split(' ').filter(Boolean);
+      const lastName = nameParts[nameParts.length - 1];
+
+      const fullNameMatches = athleteName && articleText.includes(athleteName);
+
+      const lastNameMatches =
+        lastName &&
+        lastName.length >= 4 &&
+        new RegExp(`\\b${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(
+          articleText
+        );
+
+      const athleteKey = athlete.slug || athleteName;
+
+      if ((fullNameMatches || lastNameMatches) && !seenAthletes.has(athleteKey)) {
+        matches.push({ athlete, article });
+        seenAthletes.add(athleteKey);
+        break;
+      }
+    }
+  }
+
+  return matches;
+}
+
+export function AthleteInfoBar({ articles }: AthleteInfoBarProps) {
+  const [apiAthletes, setApiAthletes] = useState<AthleteLike[]>([]);
   const [loading, setLoading] = useState(false);
-  const [allAthletes, setAllAthletes] = useState<Athlete[]>([]);
 
-  // Pre-load athletes data from API
   useEffect(() => {
-    if (allAthletes.length === 0) {
-      setLoading(true);
-      getAthletes({ limit: 100 })
-        .then((response) => {
-          setAllAthletes(response.athletes);
-        })
-        .catch((error) => {
-          console.error('Failed to load athletes:', error);
-        })
-        .finally(() => {
+    let cancelled = false;
+
+    async function loadAthletes() {
+      try {
+        setLoading(true);
+
+        const response = await getAthletes({ limit: 200 });
+
+        if (!cancelled) {
+          setApiAthletes((response.athletes ?? []) as Athlete[]);
+        }
+      } catch (error) {
+        console.error('Failed to load athletes for info bar:', error);
+      } finally {
+        if (!cancelled) {
           setLoading(false);
-        });
-    }
-  }, []);
-
-  // Match athlete when article changes
-  useEffect(() => {
-    if (!article || allAthletes.length === 0) {
-      setMatchedAthlete(null);
-      return;
-    }
-
-    const potentialNames = extractPotentialAthleteNames(article);
-    
-    // Find best matching athlete
-    let bestMatch: Athlete | null = null;
-    let bestMatchScore = 0;
-
-    for (const athlete of allAthletes) {
-      const athleteNameLower = athlete.name.toLowerCase();
-      let score = 0;
-      
-      // Exact match
-      if (potentialNames.includes(athleteNameLower)) {
-        score = 3;
-      }
-      // Partial match
-      else if (potentialNames.some(name => athleteNameLower.includes(name) || name.includes(athleteNameLower))) {
-        score = 2;
-      }
-      // Direct name mention in article text
-      else {
-        const articleText = `${article.title ?? ''} ${stripHtml(article.summary)}`.toLowerCase();
-        if (articleText.includes(athleteNameLower)) {
-          score = 1;
         }
       }
-      
-      if (score > bestMatchScore) {
-        bestMatchScore = score;
-        bestMatch = athlete;
-      }
     }
 
-    setMatchedAthlete(bestMatch);
-  }, [article, allAthletes]);
+    loadAthletes();
 
-  // Don't render if no article
-  if (!article) return null;
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const plainSummary = stripHtml(article.summary);
+  const allAthletes = useMemo(() => {
+    return uniqueAthletes([...apiAthletes, ...fallbackAthletes]);
+  }, [apiAthletes]);
 
-  // Loading state
-  if (loading && allAthletes.length === 0) {
+  const matches = useMemo(() => {
+    return findAthleteMatches(articles, allAthletes).slice(0, 4);
+  }, [articles, allAthletes]);
+
+  if (!articles.length) return null;
+
+  if (loading && apiAthletes.length === 0) {
     return (
-      <motion.section 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-cyan-500/20 bg-slate-900/60 p-4 md:p-5"
-      >
-        <div className="flex items-center justify-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 text-cyan-400 animate-spin" />
-          <p className="text-slate-400">Loading athlete data...</p>
+      <section className="rounded-2xl border border-cyan-500/20 bg-slate-900/60 p-4">
+        <div className="flex items-center justify-center gap-3 py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+          <p className="text-sm text-slate-400">Loading featured athletes...</p>
         </div>
-      </motion.section>
+      </section>
+    );
+  }
+
+  if (matches.length === 0) {
+    return (
+      <section className="rounded-2xl border border-cyan-500/20 bg-slate-900/60 p-4">
+        <p className="text-sm text-slate-400">
+          No matching athletes found for the latest news yet.
+        </p>
+      </section>
     );
   }
 
   return (
-    <motion.section 
-      initial={{ opacity: 0, y: 20 }}
+    <motion.section
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-slate-900/90 to-slate-900/60 p-4 md:p-5 hover:border-cyan-500/40 transition-all duration-300"
+      transition={{ duration: 0.25 }}
+      className="rounded-2xl border border-cyan-500/20 bg-slate-900/70 p-4"
     >
-      <div className="flex flex-col md:flex-row md:items-center gap-4">
-        {/* Athlete avatar and basic info */}
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          {/* Avatar with fallback image */}
-          <div className="relative shrink-0">
-            <img
-              src={matchedAthlete?.img ?? '/images/swimmer.png'}
-              alt={matchedAthlete?.name ?? 'Featured athlete'}
-              className="h-16 w-16 rounded-full object-cover border-2 border-cyan-500/50 bg-slate-800 shadow-lg"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/images/swimmer.png';
-              }}
-            />
-            {/* Online indicator dot */}
-            {matchedAthlete && (
-              <div className="absolute -bottom-1 -right-1 bg-cyan-500 rounded-full p-1">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0">
-            {/* Badge row */}
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <p className="text-xs uppercase tracking-wide text-cyan-400 font-medium">
-                {matchedAthlete ? 'IN THE NEWS' : 'LATEST STORY'}
-              </p>
-              {/* Medal count badge */}
-              {matchedAthlete?.medals && matchedAthlete.medals > 0 && (
-                <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Medal className="h-3 w-3" />
-                  {matchedAthlete.medals} medals
-                </span>
-              )}
-              {/* World record badge */}
-              {matchedAthlete?.world_records && matchedAthlete.world_records > 0 && (
-                <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Trophy className="h-3 w-3" />
-                  {matchedAthlete.world_records} WR
-                </span>
-              )}
-            </div>
-
-            {/* Athlete name */}
-            <h3 className="text-white text-lg font-semibold truncate">
-              {matchedAthlete?.name ?? 'Featured Swimmer Story'}
-            </h3>
-
-            {/* Country and rank info */}
-            <p className="text-sm text-slate-400 flex items-center gap-2">
-              {matchedAthlete?.country ?? 'Athlete match in progress...'}
-              {matchedAthlete?.world_rank && (
-                <>
-                  <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
-                  <span>World Rank #{matchedAthlete.world_rank}</span>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2 shrink-0">
-          {matchedAthlete ? (
-            <Link
-              to={`/athletes/${matchedAthlete.slug}`}
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-500/20 px-3 py-2 text-sm font-medium text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 hover:border-cyan-500/50 transition-all duration-200 group"
-            >
-              View Athlete Profile
-              <ExternalLink className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-          ) : article.url ? (
-            <a
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-500/20 px-3 py-2 text-sm font-medium text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 transition-all duration-200"
-            >
-              Read Full Story
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          ) : null}
-        </div>
+      <div className="mb-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">
+          Athletes in the news
+        </p>
+        <h2 className="text-lg font-semibold text-white">
+          Featured from latest stories
+        </h2>
       </div>
 
-      {/* Article summary preview */}
-      <div className="mt-4 rounded-xl bg-slate-800/50 p-3 border border-slate-700/30">
-        <p className="text-sm text-slate-300 line-clamp-2 leading-relaxed">
-          {plainSummary || article.title}
-        </p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {matches.map(({ athlete, article }) => {
+          const image = getAthleteImage(athlete);
+          const hasRealNewsLink = article.url && article.url !== '#';
+
+          const card = (
+            <div className="h-full rounded-xl border border-slate-700/70 bg-slate-800/60 p-3 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-cyan-500/40 bg-slate-700">
+                  <img
+                    src={image}
+                    alt={athlete.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold text-white">
+                    {athlete.name}
+                  </h3>
+                  <p className="truncate text-xs text-slate-400">
+                    {athlete.country || 'Swimmer'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <p className="line-clamp-2 text-sm font-medium text-slate-200">
+                  {article.title}
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+                  {stripHtml(article.summary)}
+                </p>
+              </div>
+
+              <div className="mt-3 flex items-center gap-1 text-xs font-medium text-cyan-400">
+                <span>
+                  {hasRealNewsLink ? 'Open latest news' : 'Latest matching news'}
+                </span>
+                {hasRealNewsLink && <ExternalLink className="h-3 w-3" />}
+              </div>
+            </div>
+          );
+
+          if (!hasRealNewsLink) {
+            return (
+              <div key={`${athlete.slug || athlete.name}-${article.id}`}>
+                {card}
+              </div>
+            );
+          }
+
+          return (
+            <a
+              key={`${athlete.slug || athlete.name}-${article.id}`}
+              href={article.url || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              {card}
+            </a>
+          );
+        })}
       </div>
     </motion.section>
   );
