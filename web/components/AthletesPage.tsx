@@ -21,6 +21,7 @@ import {
   type Athlete,
   type AthletesResponse,
 } from '../src/api/athletes';
+import { YourAthletes } from './YourAthletes';
 
 // --- Constants ---
 
@@ -145,6 +146,9 @@ export function AthletesPage() {
           Competitive swimmers from around the world
         </motion.p>
       </div>
+
+      {/* Followed athletes rail (moved here from the home dashboard) */}
+      <YourAthletes />
 
       {/* Search Bar */}
       <motion.div

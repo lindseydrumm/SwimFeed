@@ -170,7 +170,7 @@ export function SettingsPage() {
         <CardContent className="p-6">
           <h3 className="font-semibold text-white mb-4">Manage follows</h3>
           {allFollows.length === 0 ? (
-            <p className="text-slate-500 text-sm">You haven&apos;t followed anything yet. Add some from Explore or onboarding.</p>
+            <p className="text-slate-500 text-sm">You haven&apos;t followed anything yet. Add some from onboarding.</p>
           ) : (
             <ul className="space-y-2">
               {allFollows.map((e) => (

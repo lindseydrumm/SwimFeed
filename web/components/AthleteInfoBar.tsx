@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Athlete } from '../src/api/athletes';
 import { getAthletes } from '../src/api/athletes';
+import { FollowButton } from './FollowButton';
 
 type ArticleLike = {
   id?: number | string;
@@ -228,65 +230,103 @@ export function AthleteInfoBar({ articles }: AthleteInfoBarProps) {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {matches.map(({ athlete, article }) => {
           const image = getAthleteImage(athlete);
-          const hasRealNewsLink = article.url && article.url !== '#';
+          const hasRealNewsLink = !!article.url && article.url !== '#';
+          const profilePath = athlete.slug ? `/athletes/${athlete.slug}` : null;
 
-          const card = (
-            <div className="h-full rounded-xl border border-slate-700/70 bg-slate-800/60 p-3 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
+          return (
+            <div
+              key={`${athlete.slug || athlete.name}-${article.id}`}
+              className="h-full rounded-xl border border-slate-700/70 bg-slate-800/60 p-3 transition-colors hover:border-cyan-500/50 hover:bg-slate-800"
+            >
+              {/* Athlete identity row: avatar + name link to profile */}
               <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-cyan-500/40 bg-slate-700">
-                  <img
-                    src={image}
-                    alt={athlete.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+                {profilePath ? (
+                  <Link
+                    to={profilePath}
+                    className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-cyan-500/40 bg-slate-700 transition-transform hover:scale-105"
+                    aria-label={`Open ${athlete.name} profile`}
+                  >
+                    <img
+                      src={image}
+                      alt={athlete.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </Link>
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-cyan-500/40 bg-slate-700">
+                    <img
+                      src={image}
+                      alt={athlete.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
 
-                <div className="min-w-0">
-                  <h3 className="truncate font-semibold text-white">
-                    {athlete.name}
-                  </h3>
+                <div className="min-w-0 flex-1">
+                  {profilePath ? (
+                    <Link
+                      to={profilePath}
+                      className="block truncate font-semibold text-white hover:text-cyan-400 transition-colors"
+                    >
+                      {athlete.name}
+                    </Link>
+                  ) : (
+                    <h3 className="truncate font-semibold text-white">
+                      {athlete.name}
+                    </h3>
+                  )}
                   <p className="truncate text-xs text-slate-400">
                     {athlete.country || 'Swimmer'}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-3">
-                <p className="line-clamp-2 text-sm font-medium text-slate-200">
-                  {article.title}
-                </p>
-                <p className="mt-1 line-clamp-2 text-xs text-slate-400">
-                  {stripHtml(article.summary)}
-                </p>
-              </div>
+              {/* Follow button — only when athlete has a stable id (slug) */}
+              {profilePath && (
+                <div className="mt-3">
+                  <FollowButton
+                    entityType="athlete"
+                    entityId={athlete.slug as string}
+                    name={athlete.name}
+                    meta={{ country: athlete.country, img: image }}
+                    className="w-full justify-center !py-1.5 text-xs"
+                  />
+                </div>
+              )}
 
-              <div className="mt-3 flex items-center gap-1 text-xs font-medium text-cyan-400">
-                <span>
-                  {hasRealNewsLink ? 'Open latest news' : 'Latest matching news'}
-                </span>
-                {hasRealNewsLink && <ExternalLink className="h-3 w-3" />}
-              </div>
+              {/* Article snippet — clickable separately if a real URL exists */}
+              {hasRealNewsLink ? (
+                <a
+                  href={article.url as string}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 block group"
+                >
+                  <p className="line-clamp-2 text-sm font-medium text-slate-200 group-hover:text-cyan-400 transition-colors">
+                    {article.title}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+                    {stripHtml(article.summary)}
+                  </p>
+                  <div className="mt-2 flex items-center gap-1 text-xs font-medium text-cyan-400">
+                    <span>Open latest news</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </div>
+                </a>
+              ) : (
+                <div className="mt-3">
+                  <p className="line-clamp-2 text-sm font-medium text-slate-200">
+                    {article.title}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+                    {stripHtml(article.summary)}
+                  </p>
+                  <div className="mt-2 text-xs font-medium text-cyan-400">
+                    Latest matching news
+                  </div>
+                </div>
+              )}
             </div>
-          );
-
-          if (!hasRealNewsLink) {
-            return (
-              <div key={`${athlete.slug || athlete.name}-${article.id}`}>
-                {card}
-              </div>
-            );
-          }
-
-          return (
-            <a
-              key={`${athlete.slug || athlete.name}-${article.id}`}
-              href={article.url || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block"
-            >
-              {card}
-            </a>
           );
         })}
       </div>
