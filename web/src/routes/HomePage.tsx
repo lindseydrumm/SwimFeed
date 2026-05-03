@@ -9,7 +9,6 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { StreakBadge } from '../../components/StreakBadge';
 import { useUser } from '../store/UserStore';
 import { useGuestGate } from '../hooks/useGuestGate';
-import { YourAthletes } from '../../components/YourAthletes';
 import { UpcomingRaces } from '../../components/UpcomingRaces';
 import { NewsFeedInfinite } from '../../components/NewsFeedInfinite';
 import { RecentResults } from '../../components/RecentResults';
@@ -129,9 +128,10 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* Athletes rail */}
+      {/* Athletes-in-the-news bar (replaces the followed-athletes rail).
+          Driven by articles loaded from NewsFeedInfinite below. */}
       <section>
-        <YourAthletes />
+        <AthleteInfoBar articles={latestNewsArticles} />
       </section>
 
       {/* Upcoming Races / Watchlist */}
@@ -139,7 +139,7 @@ export function HomePage() {
         <UpcomingRaces />
       </section>
 
-      {/* News feed (full-width) + Recent Results sidebar + AthleteInfoBar */}
+      {/* News feed (full-width) + Recent Results sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
           <NewsFeedInfinite onArticlesChange={setLatestNewsArticles} />
@@ -147,10 +147,6 @@ export function HomePage() {
 
         <section className="lg:col-span-1">
           <RecentResults />
-        </section>
-
-        <section className="lg:col-span-3">
-          <AthleteInfoBar articles={latestNewsArticles} />
         </section>
       </div>
     </div>
