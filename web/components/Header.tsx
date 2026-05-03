@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Waves, Activity, Medal, Newspaper, Compass, BookOpen, BookMarked, Bookmark, BarChart3, Settings, Trophy, LogOut, User, ChevronDown } from 'lucide-react';
+import { Waves, Activity, Medal, Newspaper, BookOpen, BookMarked, Bookmark, BarChart3, Settings, Trophy, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuth, useClerk, SignInButton } from '@clerk/clerk-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { useUser } from '../src/store/UserStore';
@@ -16,14 +16,12 @@ const headerItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
   { name: 'Athletes', icon: Activity, path: '/athletes', end: true },
   { name: 'Events', icon: Medal, path: '/events', end: true },
-  { name: 'Explore', icon: Compass, path: '/explore', end: true },
 ];
 
 const sidebarItems = [
   { name: 'My Feed', icon: Newspaper, path: '/', end: true },
   { name: 'Athletes', icon: Activity, path: '/athletes', end: true },
   { name: 'Events', icon: Medal, path: '/events', end: true },
-  { name: 'Explore', icon: Compass, path: '/explore', end: true },
   { name: 'Storylines', icon: BookOpen, path: '/storylines', end: true },
   { name: 'Records', icon: Trophy, path: '/records', end: true },
   { name: 'Learn', icon: BookMarked, path: '/learn', end: true },
