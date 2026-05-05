@@ -8,24 +8,10 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Stepper } from '../../components/Stepper';
 import { useUser } from '../store/UserStore';
 import { useGuestGate } from '../hooks/useGuestGate';
-import type { OnboardingGoal, DigestPreference, UserProfile, SwimEvent } from '../types/domain';
+import type { DigestPreference, UserProfile, UserState, SwimEvent, FollowEntity, FollowEntityType } from '../types/domain';
 import { getAthletesBySlug } from '../api/athletes';
 import { getEvents } from '../api/events';
 import { WelcomePage } from './WelcomePage'
-
-const STROKES: { value: StrokePreference; label: string }[] = [
-    { value: 'butterfly', label: 'Butterfly' },
-    { value: 'backstroke', label: 'Backstroke' },
-    { value: 'breaststroke', label: 'Breaststroke' },
-    { value: 'freestyle', label: 'Freestyle' },
-];
-
-const GOALS: { value: OnboardingGoal; label: string }[] = [
-  { value: 'news', label: 'News & stories' },
-  { value: 'events', label: 'Events & meets' },
-  { value: 'athletes', label: 'Athletes' },
-  { value: 'training', label: 'Training & technique' },
-];
 
 const INTEREST_CHIPS = {
   strokes: ['Freestyle', 'Backstroke', 'Breaststroke', 'Butterfly', 'IM'],
@@ -51,27 +37,23 @@ const POOL_IMAGES: Record<PoolKey, string> = {
 
 type FlagKey = 'ROU' | 'CAN' | 'FRA' | 'AUS' ;
 
-const FLAG_CODES: Record<FlagKey, string> = {
-    
+const FLAGS: Record<FlagKey, string> = {
+    ROU: '🇷🇴',
+    CAN: '🇨🇦',
+    FRA: '🇫🇷',
+    AUS: '🇦🇺',
 }
 
 export function OnboardingPage() {
-  console.log('OnboardingPage rendered');
   const navigate = useNavigate();
-  const { completeOnboarding, isFollowing } = useUser();
+    
+  const { completeOnboarding, isFollowing, follow, unfollow, } = useUser();
   const { requireAuth } = useGuestGate();
 
   const [step, setStep] = useState(0);
   const [lane, setLane] = useState<'beginner' | 'experienced' | null>(null);
 
   const [displayName, setDisplayName] = useState('');
-  const [goals, setGoals] = useState<OnboardingGoal[]>([]);
-  const [interests, setInterests] = useState<Record<string, string[]>>({
-    strokes: [],
-    distances: [],
-    countries: [],
-    topics: [],
-  });
     
   const [athletes, setAthletes] = useState<any[]>([]);
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
@@ -79,39 +61,11 @@ export function OnboardingPage() {
   const [carouselIndex, setCarouselIndex] = useState(0);
     
   const [events, setEvents] = useState<any[]>([]);
-  const [selectedEvents, setSelectedEvents] = useState([]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
     
   const [digestPreference, setDigestPreference] = useState<DigestPreference>('weekly');
 
-  const [recommendedEvents, setRecommendedEvents] = useState<SwimEvent[]>([]);
-
   const steps = ['Welcome', 'Lane', 'Athletes', 'Events', 'Digest'];
-
-  useEffect(() => {
-    let cancelled = false;
-    getEvents()
-      .then((evs) => {
-        if (cancelled) return;
-        setRecommendedEvents(evs.slice(0, 3));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setRecommendedEvents([]);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  const toggleGoal = (g: OnboardingGoal) => {
-    setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
-  };
-
-  const toggleInterest = (category: keyof typeof INTEREST_CHIPS, value: string) => {
-    setInterests((prev) => {
-      const list = prev[category] ?? [];
-      const next = list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
-      return { ...prev, [category]: next };
-    });
-  };
     
   const getPoolImage = (key: string) =>
       POOL_IMAGES[key] ?? POOL_IMAGES['Default'];
@@ -127,6 +81,7 @@ export function OnboardingPage() {
               'katie-ledecky',
               'david-popovici',
               'kaylee-mckeown',
+              'pan-zhanle',
             ]),
             getEvents(),
           ]);
@@ -142,15 +97,35 @@ export function OnboardingPage() {
     }, []);
 
     const handleFinish = async () => {
+        // Batch follow for selected athletes
+        selectedAthletes.forEach(id => {
+            const a = athletes.find(a => a.id === Number(id));
+            console.log('following athlete:', id, a);
+            if (!a) return;
+            follow('athlete', { id, type: 'athlete', name: a.name });
+          });
+
+          // Batch follow all selected events
+          selectedEvents.forEach(id => {
+            const e = events.find(e => e.id === Number(id));
+            if (!e) return;
+            follow('event', {
+              id,
+              type: 'event',
+              name: e.name,
+              meta: {
+                city: e.city,
+                country: e.country,
+                country_code: e.country_code,
+                date_from: e.date_from,
+                date_to: e.date_to,
+                competition_type: e.competition_type,
+                disciplines: e.disciplines,
+              },
+            });
+          });
         const profile: UserProfile = {
           displayName,
-          goals,
-          interests: {
-            strokes: interests.strokes,
-            distances: interests.distances,
-            countries: interests.countries,
-            topics: interests.topics,
-          },
           digestPreference,
           onboardingComplete: true,
         };
@@ -182,7 +157,7 @@ export function OnboardingPage() {
                           initial={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
                           animate={{ opacity: 1, clipPath: 'inset(0 0 0% 0)' }}
                           exit={{ opacity: 0 }}
-                          transition={{ duration: 0.8, ease: 'easeOut' }}
+                          transition={{ duration: 0.9, ease: 'easeOut' }}
                           className="flex flex-col"
                           >
                           <h2 className="text-xl font-semibold text-white text-center mb-8">Pick your lane</h2>
@@ -311,7 +286,7 @@ export function OnboardingPage() {
                         <div className="p-1 rounded-full bg-gradient-to-br from-cyan-500/30 to-slate-700/30">
                         <div
                         className={`w-60 h-60 rounded-full overflow-hidden border-2 transition-all duration-300
-                                ${selected ? 'border-cyan-400 bg-cyan-500/10 scale-110' : 'bg-sky-200 border-slate-700'}
+                                ${selected ? 'border-cyan-400 bg-cyan-500/10 scale-110' : 'bg-slate-800/60 border-slate-700'}
                                 group-hover:scale-110 group-hover:border-cyan-400 group-hover:brightness-110`}
                         >
                         <img src={a.img} alt={a.name} className="w-full h-full object-cover" />
@@ -319,7 +294,7 @@ export function OnboardingPage() {
                         </div>
                         </button>
                         <p className="text-sm text-white mt-3 whitespace-nowrap">{a.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{a.strokes}</p>
+                        <p className="flex text-md text-slate-400 mt-0.5 items-center justify-center bg-slate-900 rounded-full w-8 h-8 border-2 border-slate-800 ">{a.flag || FLAGS[a.country]}</p>
                         </div>
                         );
             })}
