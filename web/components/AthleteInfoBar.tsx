@@ -159,7 +159,7 @@ export function AthleteInfoBar({ articles }: AthleteInfoBarProps) {
       try {
         setLoading(true);
 
-        const response = await getAthletes({ limit: 200 });
+        const response = await getAthletes({ limit: 100 });
 
         if (!cancelled) {
           setApiAthletes((response.athletes ?? []) as Athlete[]);
