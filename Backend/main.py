@@ -17,14 +17,18 @@ from config import settings
 # main app
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 
-# Allow cross-origin requests from configured origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Allow cross-origin requests from configured origins.
+# When DEBUG is on, also allow any localhost / 127.0.0.1 port so Vite can use 5174, 5175, etc.
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+_cors_kwargs: dict = {
+    "allow_origins": _cors_origins,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if settings.debug:
+    _cors_kwargs["allow_origin_regex"] = r"^http://(localhost|127\.0\.0\.1):\d+$"
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 
 # ---------------------------------------------------------------------------

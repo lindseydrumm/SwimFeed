@@ -10,6 +10,7 @@ import { NavLink } from 'react-router-dom';
 import { Waves, Activity, Medal, Newspaper, BookOpen, BookMarked, Bookmark, BarChart3, Settings, Trophy, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuth, useClerk, SignInButton } from '@clerk/clerk-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { EventNotificationsBell } from './EventNotificationsBell';
 import { useUser } from '../src/store/UserStore';
 
 const headerItems = [
@@ -143,8 +144,9 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Right side: auth state */}
+        {/* Right side: notifications + auth */}
         <div className="flex items-center gap-2">
+          <EventNotificationsBell followedEvents={state?.follows?.events} />
           {!isLoaded ? (
             <div className="h-8 w-8 rounded-full bg-slate-700 animate-pulse" />
           ) : isSignedIn ? (
