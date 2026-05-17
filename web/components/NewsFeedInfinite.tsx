@@ -53,13 +53,34 @@ function formatDate(iso?: string | null): string {
 
 interface NewsFeedInfiniteProps {
   /**
-   * Called whenever the loaded article list changes. Used by AthleteInfoBar
-   * to surface athletes mentioned in current news.
+   * Called whenever the loaded article list changes. Kept for callers that
+   * want to observe the current feed contents (e.g. analytics, sidebars).
    */
   onArticlesChange?: (articles: Article[]) => void;
+  /**
+   * When set, forces the feed to filter by this query string and hides
+   * the search input + topic pills. Used by the event detail page to
+   * scope news to a single event.
+   */
+  fixedQuery?: string;
+  /**
+   * Override for the section heading. `undefined` (default) renders
+   * "Latest News". Pass an empty string to hide the heading entirely.
+   */
+  title?: string;
+  /**
+   * Custom empty-state copy. Falls back to a generic message.
+   */
+  emptyMessage?: string;
 }
 
-export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {}) {
+export function NewsFeedInfinite({
+  onArticlesChange,
+  fixedQuery,
+  title,
+  emptyMessage,
+}: NewsFeedInfiniteProps = {}) {
+  const isLocked = fixedQuery !== undefined;
   // Search & filter state
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -111,6 +132,10 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
     return () => clearTimeout(t);
   }, [query]);
 
+  // Effective filters: when locked to a fixedQuery, ignore user input.
+  const effectiveQuery = isLocked ? fixedQuery : debouncedQuery;
+  const effectiveTopic = isLocked ? undefined : selectedTopic;
+
   // Reset & fetch first page when filters change
   useEffect(() => {
     const myId = ++requestIdRef.current;
@@ -118,8 +143,8 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
     setError(null);
 
     getArticlesPage({
-      q: debouncedQuery || undefined,
-      topic: selectedTopic ?? undefined,
+      q: effectiveQuery || undefined,
+      topic: effectiveTopic ?? undefined,
       limit: PAGE_SIZE,
     })
       .then((page) => {
@@ -139,7 +164,7 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
         if (myId !== requestIdRef.current) return;
         setLoading(false);
       });
-  }, [debouncedQuery, selectedTopic]);
+  }, [effectiveQuery, effectiveTopic]);
 
   // Load next page (cursor pagination)
   const loadMore = useCallback(() => {
@@ -148,8 +173,8 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
     setLoadingMore(true);
 
     getArticlesPage({
-      q: debouncedQuery || undefined,
-      topic: selectedTopic ?? undefined,
+      q: effectiveQuery || undefined,
+      topic: effectiveTopic ?? undefined,
       cursor,
       limit: PAGE_SIZE,
     })
@@ -166,7 +191,7 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
         if (myId !== requestIdRef.current) return;
         setLoadingMore(false);
       });
-  }, [loadingMore, loading, hasMore, cursor, debouncedQuery, selectedTopic]);
+  }, [loadingMore, loading, hasMore, cursor, effectiveQuery, effectiveTopic]);
 
   // IntersectionObserver sentinel for infinite scroll
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -183,74 +208,82 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
     return () => obs.disconnect();
   }, [loadMore]);
 
+  const resolvedTitle = title === undefined ? 'Latest News' : title;
+
   return (
     <div className="space-y-4">
-      {/* Pin sentinel: sits in normal flow just above the sticky bar.
-          When it scrolls above the global header line, the bar is "pinned"
-          and we allow scroll-direction hide to take effect. */}
-      <div ref={pinSentinelRef} aria-hidden className="h-px" />
+      {!isLocked && (
+        <>
+          {/* Pin sentinel: sits in normal flow just above the sticky bar.
+              When it scrolls above the global header line, the bar is "pinned"
+              and we allow scroll-direction hide to take effect. */}
+          <div ref={pinSentinelRef} aria-hidden className="h-px" />
 
-      {/* Sticky header: search + topic tags. Hides on scroll-down once pinned. */}
-      <motion.div
-        animate={{ y: hidden ? -120 : 0, opacity: hidden ? 0 : 1 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="sticky z-30 -mx-4 px-4 py-3 bg-slate-900/95 backdrop-blur border-b border-slate-800/60 space-y-3"
-        style={{ top: HEADER_OFFSET_PX }}
-      >
-        {/* Search input */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 pointer-events-none" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search news..."
-            className="w-full pl-12 pr-10 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 text-sm font-light focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-colors"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300 transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Topic pills */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-          <button
-            type="button"
-            onClick={() => setSelectedTopic(null)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              selectedTopic === null
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600 hover:text-slate-300'
-            }`}
+          {/* Sticky header: search + topic tags. Hides on scroll-down once pinned. */}
+          <motion.div
+            animate={{ y: hidden ? -120 : 0, opacity: hidden ? 0 : 1 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="sticky z-30 -mx-4 px-4 py-3 bg-slate-900/95 backdrop-blur border-b border-slate-800/60 space-y-3"
+            style={{ top: HEADER_OFFSET_PX }}
           >
-            All
-          </button>
-          {ARTICLE_TOPICS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setSelectedTopic(selectedTopic === t.id ? null : t.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                selectedTopic === t.id
-                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600 hover:text-slate-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 pointer-events-none" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search news..."
+                className="w-full pl-12 pr-10 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 text-sm font-light focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-colors"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Topic pills */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              <button
+                type="button"
+                onClick={() => setSelectedTopic(null)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  selectedTopic === null
+                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600 hover:text-slate-300'
+                }`}
+              >
+                All
+              </button>
+              {ARTICLE_TOPICS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSelectedTopic(selectedTopic === t.id ? null : t.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    selectedTopic === t.id
+                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600 hover:text-slate-300'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        </>
+      )}
 
       {/* Section title */}
-      <h2 className="text-lg font-semibold text-white">Latest News</h2>
+      {resolvedTitle && (
+        <h2 className="text-lg font-semibold text-white">{resolvedTitle}</h2>
+      )}
 
       {/* Initial loading */}
       {loading && (
@@ -275,9 +308,10 @@ export function NewsFeedInfinite({ onArticlesChange }: NewsFeedInfiniteProps = {
           <CardContent className="p-8 text-center">
             <Newspaper className="h-8 w-8 text-slate-500 mx-auto mb-3" />
             <p className="text-slate-400 text-sm">
-              {debouncedQuery || selectedTopic
-                ? 'No articles match your search.'
-                : 'No articles yet. Run the news scraper to populate the feed.'}
+              {emptyMessage
+                ?? (debouncedQuery || selectedTopic
+                  ? 'No articles match your search.'
+                  : 'No articles yet. Run the news scraper to populate the feed.')}
             </p>
           </CardContent>
         </Card>

@@ -58,3 +58,30 @@ export async function getArticles(limit = 50): Promise<Article[]> {
   const page = await getArticlesPage({ limit });
   return page.articles;
 }
+
+// --- Featured athletes (driven by article_athletes join) ---
+
+export type FeaturedAthlete = {
+  athlete_id: number;
+  slug: string;
+  name: string;
+  country: string | null;
+  flag: string | null;
+  img: string | null;
+  article_id: number;
+  title: string;
+  url: string;
+  summary: string | null;
+  published_at: string | null;
+  source: string;
+  mentions: number;
+};
+
+export function getFeaturedAthletes(
+  limit = 4,
+  days = 14,
+): Promise<FeaturedAthlete[]> {
+  return apiGet<FeaturedAthlete[]>(
+    `/articles/featured-athletes?limit=${limit}&days=${days}`,
+  );
+}

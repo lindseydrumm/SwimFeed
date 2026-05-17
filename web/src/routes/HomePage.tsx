@@ -1,7 +1,7 @@
 /**
  * My Feed dashboard: featured carousel, personalized header, Since last visit,
  * Your Athletes, Upcoming Races, infinite-scroll news feed, Recent Results,
- * and AthleteInfoBar driven by the loaded news articles.
+ * and AthleteInfoBar (driven by /articles/featured-athletes).
  */
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -15,14 +15,12 @@ import { RecentResults } from '../../components/RecentResults';
 import { FeaturedCarousel } from '../../components/FeaturedCarousel';
 import { AthleteInfoBar } from '../../components/AthleteInfoBar';
 import { Sparkles, Settings, Bookmark } from 'lucide-react';
-import type { Article } from '../api/articles';
 
 export function HomePage() {
   const { state, touchVisit, ready } = useUser();
   const { isGuest } = useGuestGate();
 
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
-  const [latestNewsArticles, setLatestNewsArticles] = useState<Article[]>([]);
 
   // Touch visit when user is authenticated
   useEffect(() => {
@@ -128,10 +126,9 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* Athletes-in-the-news bar (replaces the followed-athletes rail).
-          Driven by articles loaded from NewsFeedInfinite below. */}
+      {/* Athletes-in-the-news bar — self-contained, fetches its own data. */}
       <section>
-        <AthleteInfoBar articles={latestNewsArticles} />
+        <AthleteInfoBar />
       </section>
 
       {/* Upcoming Races / Watchlist */}
@@ -142,7 +139,7 @@ export function HomePage() {
       {/* News feed (full-width) + Recent Results sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
-          <NewsFeedInfinite onArticlesChange={setLatestNewsArticles} />
+          <NewsFeedInfinite />
         </section>
 
         <section className="lg:col-span-1">

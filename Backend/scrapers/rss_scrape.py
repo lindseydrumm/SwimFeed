@@ -36,6 +36,16 @@ def main():
         feed = feedparser.parse(s["feed_url"])
 
         for entry in feed.entries:
+            # Extract RSS <category> terms. Backend filters to athlete names
+            # via name_norm lookup against the athletes table.
+            athlete_tags: list[str] = []
+            if hasattr(entry, "tags"):
+                athlete_tags = [
+                    t.get("term", "").strip()
+                    for t in entry.tags
+                    if t.get("term")
+                ]
+
             article = {
                 "title": entry.title,
                 "url": entry.link,
@@ -46,6 +56,7 @@ def main():
                 ),
                 "summary": entry.summary if hasattr(entry, "summary") else None,
                 "source": s["source"],
+                "athlete_tags": athlete_tags or None,
             }
 
             headers = {}
