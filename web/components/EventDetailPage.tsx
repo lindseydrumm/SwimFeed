@@ -184,6 +184,10 @@ export function EventDetailPage() {
             entityType="event"
             entityId={eventId}
             name={event.name}
+            meta={{
+              date_from: event.date_from ?? undefined,
+              date_to: event.date_to ?? undefined,
+            }}
             label="Follow Event"
             followingLabel="Following Event"
           />

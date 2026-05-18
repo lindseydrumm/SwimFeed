@@ -43,9 +43,7 @@ export function AthleteInfoBar() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Failed to load featured athletes',
-          );
+          setError(err instanceof Error ? err.message : 'Failed to load featured athletes');
         }
       })
       .finally(() => {
@@ -92,8 +90,7 @@ export function AthleteInfoBar() {
         {featured.map((fa) => {
           const hasRealNewsLink = !!fa.url && fa.url !== '#';
           const profilePath = fa.slug ? `/athletes/${fa.slug}` : null;
-          const mentionsLabel =
-            fa.mentions > 1 ? `${fa.mentions} stories` : '1 story';
+
 
           return (
             <div
@@ -149,11 +146,9 @@ export function AthleteInfoBar() {
                       {fa.name}
                     </h3>
                   )}
-                  <p className="truncate text-xs text-slate-400">
-                    {fa.country || 'Swimmer'}
-                    <span className="mx-1 text-slate-600">·</span>
-                    <span className="text-cyan-400">{mentionsLabel}</span>
-                  </p>
+                    <p className="truncate text-xs text-slate-400">
+                      {fa.country || 'Swimmer'}
+                    </p>
                 </div>
               </div>
 
