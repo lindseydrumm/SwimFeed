@@ -23,8 +23,8 @@ def main():
     print("\n=== Running WA Rankings scraper ===")
     athlete_ids = rankings_main()
 
-    print("\n=== Running Athletes scraper (targeted from rankings) ===")
-    athletes_main(athlete_ids=athlete_ids)
+    print("\n=== Running Athletes scraper (targeted from rankings, skipping photo fetch for athletes already cached) ===")
+    athletes_main(athlete_ids=athlete_ids, skip_existing_photos=True)
 
     print("\n=== Running Athlete Detail scraper (HTML pages) ===")
     athlete_detail_main(athlete_ids=athlete_ids)

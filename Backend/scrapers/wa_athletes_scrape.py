@@ -120,6 +120,32 @@ def country_code_to_flag(code: str | None) -> str | None:
         return None
 
 
+def _fetch_existing_photo_ids(ids: list[int]) -> set[int]:
+    """Return the subset of external_ids that already have a non-empty img in the DB.
+
+    Uses the existing POST /athletes/batch-by-ext-id endpoint so the scraper
+    stays on the API boundary (no direct DB access). On any failure, returns
+    an empty set so callers fall back to fetching photos for everyone — safer
+    than silently skipping a new athlete.
+    """
+    if not ids:
+        return set()
+    base = settings.athlete_api_url.rsplit("/ingest/athlete", 1)[0]
+    url = f"{base}/athletes/batch-by-ext-id"
+    try:
+        r = requests.post(url, json={"external_ids": ids}, timeout=20)
+        if r.status_code != 200:
+            tqdm.write(
+                f"[photo-skip] batch-by-ext-id returned {r.status_code}; not skipping"
+            )
+            return set()
+        rows = r.json()
+    except Exception as exc:
+        tqdm.write(f"[photo-skip] error: {exc}; not skipping")
+        return set()
+    return {row["external_id"] for row in rows if row.get("img")}
+
+
 def fetch_photos(ids: list[int]) -> dict[int, str]:
     """Batch-fetch photo URLs for a list of athlete IDs.
     Returns a mapping of athlete ID -> imageUrl (or empty dict if the request fails).
@@ -184,16 +210,32 @@ def _post_athlete(payload: dict) -> None:
         print(f"  {payload['name']} ({payload.get('country')}) -> {resp.status_code}")
 
 
-def _ingest_athletes(athletes: list[dict]) -> None:
-    """Batch-fetch photos and ingest a list of athlete dicts."""
+def _ingest_athletes(athletes: list[dict], skip_existing_photos: bool = False) -> None:
+    """Batch-fetch photos and ingest a list of athlete dicts.
+
+    When *skip_existing_photos* is True, athletes whose row in the DB already
+    has a non-empty img are excluded from the photo API call. New athletes,
+    or those still missing a photo, are still fetched. Backend preserves
+    existing photos via COALESCE on conflict, so sending img=None for
+    already-photo'd athletes is safe.
+    """
     batch_size = 50
     for i in tqdm(
         range(0, len(athletes), batch_size), desc="Processing batches", unit="batch"
     ):
         batch = athletes[i : i + batch_size]
         ids = [a["id"] for a in batch]
+        if skip_existing_photos:
+            already = _fetch_existing_photo_ids(ids)
+            missing = [aid for aid in ids if aid not in already]
+            if already:
+                tqdm.write(
+                    f"[photo-skip] skipping {len(already)}/{len(ids)} athletes already with photo"
+                )
+        else:
+            missing = ids
         try:
-            photo_map = fetch_photos(ids)
+            photo_map = fetch_photos(missing) if missing else {}
         except Exception as exc:
             tqdm.write(
                 f"[photo] Unexpected error: {exc}. Continuing without photos for this batch."
@@ -217,11 +259,15 @@ def _ingest_athletes(athletes: list[dict]) -> None:
             _post_athlete(payload)
 
 
-def main(athlete_ids: set[int] | None = None):
+def main(athlete_ids: set[int] | None = None, skip_existing_photos: bool = False):
     """Scrape and ingest athletes.
 
     If *athlete_ids* is provided, only those athletes are fetched (targeted mode).
     Otherwise all athletes are fetched via full pagination (legacy mode).
+
+    When *skip_existing_photos* is True (set by run_all.py), the photo API is
+    not called for athletes whose row already has a non-empty img in the DB.
+    Standalone CLI invocations default to False — full photo refresh.
     """
     from scrapers import print_ingest_info
 
@@ -238,7 +284,7 @@ def main(athlete_ids: set[int] | None = None):
     # Filter out entries without a usable name
     athletes = [a for a in athletes if a.get("fullName", "").strip()]
 
-    _ingest_athletes(athletes)
+    _ingest_athletes(athletes, skip_existing_photos=skip_existing_photos)
 
 
 if __name__ == "__main__":
