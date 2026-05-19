@@ -34,7 +34,7 @@ function Layout() {
 
       {!hideHeaderFooter && (
         <footer className="border-t border-slate-800 mt-12 py-8 text-center text-slate-500 text-sm">
-          <p>© 2026 SwimLive. Your personal swimming companion.</p>
+          <p>© 2026 SwimFeed. Your personal swimming companion.</p>
         </footer>
       )}
     </div>
