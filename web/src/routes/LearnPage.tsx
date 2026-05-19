@@ -6,12 +6,14 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { StreakBadge } from '../../components/StreakBadge';
 import { useUser } from '../store/UserStore';
+import { useGuestGate } from '../hooks/useGuestGate';
 import { learnModules } from '../data/learnModules';
 import type { LearnModule } from '../types/domain';
 import { CheckCircle, Circle } from 'lucide-react';
 
 export function LearnPage() {
   const { state, completeLearnModule } = useUser();
+  const { requireAuth } = useGuestGate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [checklistDone, setChecklistDone] = useState<Record<string, Set<number>>>({});
@@ -25,7 +27,7 @@ export function LearnPage() {
     const mod = learnModules.find((m) => m.id === moduleId);
     const step = mod?.steps?.[stepIndex];
     if (step && 'correctIndex' in step && step.correctIndex === chosenIndex) {
-      if (stepIndex === (mod.steps?.length ?? 0) - 1) completeLearnModule(moduleId);
+      if (stepIndex === (mod.steps?.length ?? 0) - 1) requireAuth(() => completeLearnModule(moduleId));
     }
   };
 
@@ -36,14 +38,13 @@ export function LearnPage() {
       else set.add(index);
       const next = { ...prev, [moduleId]: set };
       const mod = learnModules.find((m) => m.id === moduleId);
-      if (mod?.steps && set.size === mod.steps.length) completeLearnModule(moduleId);
+      if (mod?.steps && set.size === mod.steps.length) requireAuth(() => completeLearnModule(moduleId));
       return next;
     });
   };
 
   const handleCompleteInfo = (moduleId: string) => {
-    completeLearnModule(moduleId);
-    setSelectedId(null);
+    requireAuth(() => { completeLearnModule(moduleId); setSelectedId(null); });
   };
 
   return (

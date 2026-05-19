@@ -1,7 +1,8 @@
 import requests
 from tqdm import tqdm
 from config import settings
-from urllib.parse import quote
+from scrapers import normalize_name
+
 
 BASE = "https://api.worldaquatics.com/fina/athletes"
 PHOTO_BASE = "https://api.worldaquatics.com/content/fina/photo/en/"
@@ -18,6 +19,17 @@ def fetch_page(page: int) -> dict:
     r = requests.get(BASE, params=params, headers=HEADERS, timeout=20)
     r.raise_for_status()
     return r.json()
+
+
+def fetch_athlete_by_id(athlete_id: int) -> dict | None:
+    """Fetch a single athlete by their external ID."""
+    try:
+        r = requests.get(f"{BASE}/{athlete_id}", headers=HEADERS, timeout=20)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except Exception:
+        return None
 
 
 def scrape_all() -> list[dict]:
@@ -38,42 +50,116 @@ def scrape_all() -> list[dict]:
     return athletes
 
 
+def scrape_by_ids(ids: set[int]) -> list[dict]:
+    """Fetch athletes individually by their external IDs."""
+    athletes: list[dict] = []
+    for aid in tqdm(sorted(ids), desc="Fetching athletes by ID", unit="athlete"):
+        data = fetch_athlete_by_id(aid)
+        if data and data.get("fullName", "").strip():
+            athletes.append(data)
+    return athletes
+
+
 def country_code_to_flag(code: str | None) -> str | None:
-    """Convert a three‑letter IOC country code to a flag emoji.
-    Only a subset of common codes is supported; unknown codes return None.
+    """Convert a three-letter IOC country code to a flag emoji.
+
+    Uses an IOC→ISO-3166-1-alpha-2 mapping for codes that differ,
+    then converts the 2-letter code to regional-indicator emoji algorithmically.
     """
     if not code:
         return None
-    mapping = {
-        "USA": "🇺🇸",
-        "IND": "🇮🇳",
-        "TUR": "🇹🇷",
-        "EST": "🇪🇪",
-        "DEN": "🇩🇰",
-        "FIN": "🇫🇮",
+
+    # IOC codes that differ from ISO alpha-2 (or alpha-3 truncation).
+    # Most IOC 3-letter codes match the first two letters of ISO alpha-2,
+    # but ~40 countries diverge. This covers all swimming-relevant ones.
+    IOC_TO_ISO2 = {
+        "AHO": "CW", "ALG": "DZ", "ANG": "AO", "ANT": "AG", "ARU": "AW",
+        "BAH": "BS", "BAN": "BD", "BAR": "BB", "BER": "BM", "BIZ": "BZ",
+        "BOT": "BW", "BRU": "BN", "BUL": "BG", "BUR": "BF", "CAM": "KH",
+        "CAY": "KY", "CGO": "CG", "CHI": "CL", "CHN": "CN", "CIV": "CI",
+        "COD": "CD", "CRC": "CR", "CRO": "HR", "DEN": "DK", "ESA": "SV",
+        "ESP": "ES", "FIJ": "FJ", "GBR": "GB", "GER": "DE", "GRE": "GR",
+        "GUA": "GT", "GUI": "GN", "HAI": "HT", "HKG": "HK", "HON": "HN",
+        "INA": "ID", "IND": "IN", "IRI": "IR", "IRL": "IE", "ISV": "VI",
+        "ITA": "IT", "IVB": "VG", "JAM": "JM", "JPN": "JP", "KAZ": "KZ",
+        "KGZ": "KG", "KOR": "KR", "KSA": "SA", "KUW": "KW", "LAT": "LV",
+        "LBA": "LY", "LES": "LS", "LIB": "LB", "LTU": "LT", "MAD": "MG",
+        "MAS": "MY", "MAW": "MW", "MEX": "MX", "MGL": "MN", "MKD": "MK",
+        "MLI": "ML", "MNE": "ME", "MON": "MC", "MOZ": "MZ", "MRI": "MU",
+        "MTN": "MR", "MYA": "MM", "NAM": "NA", "NCA": "NI", "NED": "NL",
+        "NEP": "NP", "NGR": "NG", "NIG": "NE", "NOR": "NO", "OMA": "OM",
+        "PAK": "PK", "PAN": "PA", "PAR": "PY", "PER": "PE", "PHI": "PH",
+        "PLE": "PS", "PNG": "PG", "POR": "PT", "PRK": "KP", "PUR": "PR",
+        "QAT": "QA", "ROU": "RO", "RSA": "ZA", "RUS": "RU", "RWA": "RW",
+        "SAM": "WS", "SEN": "SN", "SEY": "SC", "SIN": "SG", "SLE": "SL",
+        "SLO": "SI", "SMR": "SM", "SOL": "SB", "SOM": "SO", "SRB": "RS",
+        "SRI": "LK", "SUD": "SD", "SUI": "CH", "SUR": "SR", "SVK": "SK",
+        "SWE": "SE", "SWZ": "SZ", "SYR": "SY", "TAN": "TZ", "TGA": "TO",
+        "THA": "TH", "TJK": "TJ", "TKM": "TM", "TOG": "TG", "TPE": "TW",
+        "TRI": "TT", "TUN": "TN", "TUR": "TR", "UAE": "AE", "UGA": "UG",
+        "UKR": "UA", "URU": "UY", "USA": "US", "UZB": "UZ", "VAN": "VU",
+        "VEN": "VE", "VIE": "VN", "ZAM": "ZM", "ZIM": "ZW",
+        # Common aliases
+        "EST": "EE", "FIN": "FI", "AUS": "AU", "AUT": "AT", "BRA": "BR",
+        "CAN": "CA", "COL": "CO", "CUB": "CU", "CZE": "CZ", "ECU": "EC",
+        "EGY": "EG", "ETH": "ET", "FRA": "FR", "GEO": "GE", "GHA": "GH",
+        "HUN": "HU", "ISL": "IS", "ISR": "IL", "KEN": "KE", "NZL": "NZ",
+        "POL": "PL", "SGP": "SG",
     }
-    return mapping.get(code.upper())
+
+    ioc = code.upper()
+    iso2 = IOC_TO_ISO2.get(ioc)
+    if not iso2:
+        # Fallback: try first two letters (works for ~100 codes like ARG, BEL, etc.)
+        iso2 = ioc[:2]
+
+    # Convert 2-letter ISO code to regional indicator symbols (flag emoji)
+    try:
+        return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in iso2.upper())
+    except Exception:
+        return None
+
+
+def _fetch_existing_photo_ids(ids: list[int]) -> set[int]:
+    """Return the subset of external_ids that already have a non-empty img in the DB.
+
+    Uses the existing POST /athletes/batch-by-ext-id endpoint so the scraper
+    stays on the API boundary (no direct DB access). On any failure, returns
+    an empty set so callers fall back to fetching photos for everyone — safer
+    than silently skipping a new athlete.
+    """
+    if not ids:
+        return set()
+    base = settings.athlete_api_url.rsplit("/ingest/athlete", 1)[0]
+    url = f"{base}/athletes/batch-by-ext-id"
+    try:
+        r = requests.post(url, json={"external_ids": ids}, timeout=20)
+        if r.status_code != 200:
+            tqdm.write(
+                f"[photo-skip] batch-by-ext-id returned {r.status_code}; not skipping"
+            )
+            return set()
+        rows = r.json()
+    except Exception as exc:
+        tqdm.write(f"[photo-skip] error: {exc}; not skipping")
+        return set()
+    return {row["external_id"] for row in rows if row.get("img")}
 
 
 def fetch_photos(ids: list[int]) -> dict[int, str]:
-    """Batch‑fetch photo URLs for a list of athlete IDs.
+    """Batch-fetch photo URLs for a list of athlete IDs.
     Returns a mapping of athlete ID -> imageUrl (or empty dict if the request fails).
     """
     if not ids:
         return {}
-    # Build referenceExpression like "FINA_ATHLETE:1307409" combined with OR
-    # Use percent‑encoding ("%20") for spaces, matching the format that works in a browser.
     expr = " or ".join([f'"FINA_ATHLETE:{i}"' for i in ids])
-    # Manually percent‑encode the expression to avoid '+' for spaces.
-    encoded_expr = quote(expr, safe="")
     params = {
         "limit": 100,
         "tagNames": "athlete-image",
-        "referenceExpression": encoded_expr,
+        "referenceExpression": expr,
     }
     try:
         r = requests.get(PHOTO_BASE, params=params, headers=HEADERS, timeout=20)
-        # If the API returns a non‑200 status (e.g., 500), we treat it as no photos.
         if r.status_code != 200:
             tqdm.write(
                 f"[photo] Warning: photo API returned {r.status_code}. Skipping photos for this batch."
@@ -85,7 +171,6 @@ def fetch_photos(ids: list[int]) -> dict[int, str]:
         return {}
     result: dict[int, str] = {}
     for item in data.get("content", []):
-        # Each item may have multiple references; we look for the athlete reference
         for ref in item.get("references", []):
             if ref.get("type") == "FINA_ATHLETE":
                 athlete_id = int(ref.get("id"))
@@ -94,24 +179,64 @@ def fetch_photos(ids: list[int]) -> dict[int, str]:
     return result
 
 
-def main():
-    athletes = scrape_all()
-    print(f"Fetched {len(athletes)} athletes from World Aquatics")
+def _post_athlete(payload: dict) -> None:
+    """POST a single athlete payload to the ingest endpoint."""
+    ingest_headers = {}
+    if settings.ingest_api_key:
+        ingest_headers["X-API-Key"] = settings.ingest_api_key
+    try:
+        resp = requests.post(
+            settings.athlete_api_url,
+            json=payload,
+            headers=ingest_headers,
+            timeout=15,
+        )
+    except Exception as exc:
+        tqdm.write(f"[ingest] Failed to POST athlete {payload.get('name')}: {exc}")
+        return
 
-    # Filter out entries without a usable name
-    athletes = [a for a in athletes if a.get("fullName", "").strip()]
+    if resp.status_code == 401:
+        tqdm.write(
+            f"[ingest] {payload['name']} -> 401 Unauthorized: "
+            "API key is missing or incorrect. "
+            "Check that INGEST_API_KEY in your .env matches the server."
+        )
+    elif resp.status_code == 422:
+        tqdm.write(
+            f"[ingest] {payload['name']} -> 422 Validation Error: "
+            f"{resp.text[:200]}"
+        )
+    else:
+        print(f"  {payload['name']} ({payload.get('country')}) -> {resp.status_code}")
 
-    # Process in batches to limit photo API requests
-    batch_size = 50  # Smaller batch to keep the photo‑API query length reasonable
+
+def _ingest_athletes(athletes: list[dict], skip_existing_photos: bool = False) -> None:
+    """Batch-fetch photos and ingest a list of athlete dicts.
+
+    When *skip_existing_photos* is True, athletes whose row in the DB already
+    has a non-empty img are excluded from the photo API call. New athletes,
+    or those still missing a photo, are still fetched. Backend preserves
+    existing photos via COALESCE on conflict, so sending img=None for
+    already-photo'd athletes is safe.
+    """
+    batch_size = 50
     for i in tqdm(
         range(0, len(athletes), batch_size), desc="Processing batches", unit="batch"
     ):
         batch = athletes[i : i + batch_size]
         ids = [a["id"] for a in batch]
-        # Fetch photos – if the request fails we fall back to an empty dict
+        if skip_existing_photos:
+            already = _fetch_existing_photo_ids(ids)
+            missing = [aid for aid in ids if aid not in already]
+            if already:
+                tqdm.write(
+                    f"[photo-skip] skipping {len(already)}/{len(ids)} athletes already with photo"
+                )
+        else:
+            missing = ids
         try:
-            photo_map = fetch_photos(ids)
-        except Exception as exc:  # safeguard – should never happen because fetch_photos has its own guard
+            photo_map = fetch_photos(missing) if missing else {}
+        except Exception as exc:
             tqdm.write(
                 f"[photo] Unexpected error: {exc}. Continuing without photos for this batch."
             )
@@ -119,7 +244,7 @@ def main():
         for a in tqdm(batch, desc="Posting athletes", leave=False):
             payload = {
                 "external_id": a["id"],
-                "name": a["fullName"].strip(),
+                "name": normalize_name(a["fullName"].strip()),
                 "country": a.get("nationality"),
                 "flag": country_code_to_flag(a.get("nationality")),
                 "strokes": None,
@@ -128,37 +253,38 @@ def main():
                 "world_records": None,
                 "world_rank": None,
                 "img": photo_map.get(a["id"]),
+                "gender": a.get("gender"),
+                "date_of_birth": a.get("dateOfBirth"),
             }
-            try:
-                ingest_headers = {}
-                if settings.ingest_api_key:
-                    ingest_headers["X-API-Key"] = settings.ingest_api_key
-                resp = requests.post(
-                    settings.athlete_api_url,
-                    json=payload,
-                    headers=ingest_headers,
-                    timeout=15,
-                )
-                status = resp.status_code
-            except Exception as exc:
-                tqdm.write(
-                    f"[ingest] Failed to POST athlete {payload.get('name')}: {exc}"
-                )
-                status = "error"
+            _post_athlete(payload)
 
-            if status == 401:
-                tqdm.write(
-                    f"[ingest] {payload['name']} -> 401 Unauthorized: "
-                    "API key is missing or incorrect. "
-                    "Check that INGEST_API_KEY in your .env matches the server."
-                )
-            elif status == 422:
-                tqdm.write(
-                    f"[ingest] {payload['name']} -> 422 Validation Error: "
-                    f"{resp.text[:200]}"
-                )
-            else:
-                print(f"  {payload['name']} ({payload.get('country')}) -> {status}")
+
+def main(athlete_ids: set[int] | None = None, skip_existing_photos: bool = False):
+    """Scrape and ingest athletes.
+
+    If *athlete_ids* is provided, only those athletes are fetched (targeted mode).
+    Otherwise all athletes are fetched via full pagination (legacy mode).
+
+    When *skip_existing_photos* is True (set by run_all.py), the photo API is
+    not called for athletes whose row already has a non-empty img in the DB.
+    Standalone CLI invocations default to False — full photo refresh.
+    """
+    from scrapers import print_ingest_info
+
+    print_ingest_info(settings.athlete_api_url)
+
+    if athlete_ids:
+        print(f"Targeted mode: fetching {len(athlete_ids)} athletes by ID")
+        athletes = scrape_by_ids(athlete_ids)
+    else:
+        athletes = scrape_all()
+
+    print(f"Fetched {len(athletes)} athletes from World Aquatics")
+
+    # Filter out entries without a usable name
+    athletes = [a for a in athletes if a.get("fullName", "").strip()]
+
+    _ingest_athletes(athletes, skip_existing_photos=skip_existing_photos)
 
 
 if __name__ == "__main__":

@@ -86,16 +86,6 @@ export interface LearnModule {
   steps?: { question?: string; options?: string[]; correctIndex?: number; content?: string }[];
 }
 
-// --- Explore lane ---
-export interface ExploreLane {
-  id: string;
-  title: string;
-  description: string;
-  recommendedFollows: FollowEntity[];
-  articleIds?: string[];
-  imageId?: string;
-}
-
 // --- Article (from API) ---
 export interface Article {
   id?: number;

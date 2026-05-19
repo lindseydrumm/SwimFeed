@@ -1,29 +1,36 @@
 /**
- * Reading queue: saved articles. Filter seen/unseen. Uses useUser + getArticles for details.
+ * Reading queue: saved articles. Filter seen/unseen. Uses useUser + getArticlesPage for details.
  */
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { ArticleActions } from '../../components/ArticleActions';
 import { useUser } from '../store/UserStore';
-import { getArticles } from '../api/articles';
+import { useGuestGate } from '../hooks/useGuestGate';
+import { getArticlesPage } from '../api/articles';
 import type { Article } from '../api/articles';
 import { Bookmark } from 'lucide-react';
 
 export function SavedPage() {
   const { state, isSaved, isSeen, unsaveArticle } = useUser();
+  const { requireAuth } = useGuestGate();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const savedUrls = state?.contentState?.savedArticles ?? [];
 
+  // Pull a generous page so most saved articles resolve. (DB-side filter by
+  // saved IDs would be cleaner; current API doesn't support id-list filter.)
   useEffect(() => {
-    getArticles()
-      .then(setArticles)
+    getArticlesPage({ limit: 50 })
+      .then((page) => setArticles(page.articles))
       .catch(() => setArticles([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const savedItems = articles.filter((a) => savedUrls.includes(a.url));
+  const savedItems = articles.filter((a) => {
+    const idKey = a.id != null ? String(a.id) : null;
+    return savedUrls.includes(a.url) || (idKey ? savedUrls.includes(idKey) : false);
+  });
 
   const getPlainText = (html?: string | null) => {
     if (!html) return '';
@@ -57,7 +64,9 @@ export function SavedPage() {
       ) : (
         <div className="space-y-4">
           {savedItems.map((item) => {
-            const seen = isSeen(item.url);
+            const idKey = item.id != null ? String(item.id) : null;
+            const urlOrId = savedUrls.includes(item.url) ? item.url : (idKey && savedUrls.includes(idKey) ? idKey : item.url);
+            const seen = isSeen(urlOrId);
             return (
               <Card key={item.url} animate={false} className={seen ? 'opacity-80' : ''}>
                 <CardContent className="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -88,10 +97,10 @@ export function SavedPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <ArticleActions urlOrId={item.url} />
+                    <ArticleActions urlOrId={urlOrId} />
                     <button
                       type="button"
-                      onClick={() => unsaveArticle(item.url)}
+                      onClick={() => requireAuth(() => unsaveArticle(urlOrId))}
                       className="text-slate-500 hover:text-red-400 text-sm"
                     >
                       Remove

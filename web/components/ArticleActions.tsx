@@ -4,6 +4,7 @@
 import React from 'react';
 import { Bookmark, Eye } from 'lucide-react';
 import { useUser } from '../src/store/UserStore';
+import { useGuestGate } from '../src/hooks/useGuestGate';
 
 interface ArticleActionsProps {
   urlOrId: string;
@@ -15,20 +16,20 @@ interface ArticleActionsProps {
 
 export function ArticleActions({ urlOrId, className = '' }: ArticleActionsProps) {
   const { isSaved, isSeen, saveArticle, unsaveArticle, markSeen } = useUser();
+  const { requireAuth } = useGuestGate();
   const saved = isSaved(urlOrId);
   const seen = isSeen(urlOrId);
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (saved) unsaveArticle(urlOrId);
-    else saveArticle(urlOrId);
+    requireAuth(() => { if (saved) unsaveArticle(urlOrId); else saveArticle(urlOrId); });
   };
 
   const handleSeen = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    markSeen(urlOrId);
+    requireAuth(() => markSeen(urlOrId));
   };
 
   return (

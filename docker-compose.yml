@@ -23,6 +23,7 @@ services:
       - "8000:8000"
     volumes:
       - ./Backend:/app
+      - /app/.venv
 
 volumes:
   postgres_data:
