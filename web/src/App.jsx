@@ -17,6 +17,7 @@ import { EventDetailPage } from '../components/EventDetailPage';
 import { SwimmerPage } from '../components/SwimmerPage';
 import { AthletesPage } from '../components/AthletesPage';
 import { RecordsPage } from './routes/RecordsPage';
+import { FeedbackWidget } from '../components/FeedbackWidget';
 
 function Layout() {
   const location = useLocation();
@@ -60,19 +61,51 @@ export default function App() {
             <Route path="/events/:id" element={<EventDetailPage />} />
             <Route path="/athletes" element={<AthletesPage />} />
             <Route path="/athletes/:slug" element={<SwimmerPage />} />
+
             {/* Explore was removed; redirect legacy URLs to home. */}
             <Route path="/explore" element={<Navigate to="/" replace />} />
             <Route path="/explore/:laneId" element={<Navigate to="/" replace />} />
+
             <Route path="/storylines" element={<StorylinesPage />} />
             <Route path="/storylines/:id" element={<StorylineDetailPage />} />
             <Route path="/records" element={<RecordsPage />} />
-            <Route path="/saved" element={<OnboardingGuard><SavedPage /></OnboardingGuard>} />
-            <Route path="/learn" element={<OnboardingGuard><LearnPage /></OnboardingGuard>} />
-            <Route path="/recap" element={<OnboardingGuard><RecapPage /></OnboardingGuard>} />
-            <Route path="/settings" element={<OnboardingGuard><SettingsPage /></OnboardingGuard>} />
+            <Route
+              path="/saved"
+              element={
+                <OnboardingGuard>
+                  <SavedPage />
+                </OnboardingGuard>
+              }
+            />
+            <Route
+              path="/learn"
+              element={
+                <OnboardingGuard>
+                  <LearnPage />
+                </OnboardingGuard>
+              }
+            />
+            <Route
+              path="/recap"
+              element={
+                <OnboardingGuard>
+                  <RecapPage />
+                </OnboardingGuard>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <OnboardingGuard>
+                  <SettingsPage />
+                </OnboardingGuard>
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+
+        <FeedbackWidget />
       </UserStoreProvider>
     </ThemeProvider>
   );

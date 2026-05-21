@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS athletes (
     slug            TEXT UNIQUE NOT NULL,
     external_id     INTEGER UNIQUE NOT NULL,
     name            TEXT NOT NULL,
+    name_norm       TEXT,
     country         TEXT,
     flag            TEXT,
     strokes         TEXT,
@@ -42,6 +43,10 @@ CREATE TABLE IF NOT EXISTS athletes (
     club            TEXT,
     detail_scraped_at TIMESTAMPTZ
 );
+-- Upgrade path for existing DBs that pre-date name_norm.
+ALTER TABLE athletes ADD COLUMN IF NOT EXISTS name_norm TEXT;
+UPDATE athletes SET name_norm = lower(name) WHERE name_norm IS NULL;
+CREATE INDEX IF NOT EXISTS idx_athletes_name_norm ON athletes(name_norm);
 -- --------------- athlete_personal_bests --
 CREATE TABLE IF NOT EXISTS athlete_personal_bests (
     id              SERIAL PRIMARY KEY,
@@ -65,6 +70,16 @@ CREATE TABLE IF NOT EXISTS articles (
     summary       TEXT,
     source        TEXT NOT NULL
 );
+
+-- --------------- article-athlete join ---------------
+CREATE TABLE IF NOT EXISTS article_athletes (
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    athlete_id INTEGER NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+    matched_via TEXT NOT NULL,
+    PRIMARY KEY (article_id, athlete_id)
+);
+CREATE INDEX IF NOT EXISTS idx_article_athletes_athlete ON article_athletes(athlete_id);
+
 -- --------------- rankings ---------------
 CREATE TABLE IF NOT EXISTS rankings (
     id              SERIAL PRIMARY KEY,

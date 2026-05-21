@@ -25,10 +25,18 @@ function getPrimaryEvent(strokes?: string | null) {
   return strokes.split(',')[0].trim();
 }
 
+function followedAthleteIds(state: ReturnType<typeof useUser>['state']): string[] {
+  const follows = state?.follows;
+  if (follows == null || typeof follows !== 'object') return [];
+  const list = 'athletes' in follows ? (follows as { athletes: unknown }).athletes : undefined;
+  if (!Array.isArray(list)) return [];
+  return list.map((e) => (e && typeof e === 'object' && 'id' in e ? String((e as { id: string }).id) : '')).filter(Boolean);
+}
+
 export function YourAthletes() {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const { state } = useUser();
-  const followedSlugs = (state?.follows.athletes ?? []).map((e) => e.id);
+  const followedSlugs = followedAthleteIds(state);
 
   useEffect(() => {
     if (followedSlugs.length === 0) {

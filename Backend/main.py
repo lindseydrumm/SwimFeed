@@ -9,22 +9,35 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, text
+import unicodedata
 from sqlalchemy.exc import IntegrityError
 
 # import environmental variables
 from config import settings
 
+def normalize_name(name: str) -> str:
+    """Normalize a name: strip diacritics, lower‑case.
+    Used for fast exact match of athlete names from RSS tags.
+    """
+    normalized = unicodedata.normalize('NFD', name)
+    normalized = ''.join(c for c in normalized if not unicodedata.combining(c))
+    return normalized.lower()
+
 # main app
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 
-# Allow cross-origin requests from configured origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Allow cross-origin requests from configured origins.
+# When DEBUG is on, also allow any localhost / 127.0.0.1 port so Vite can use 5174, 5175, etc.
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+_cors_kwargs: dict = {
+    "allow_origins": _cors_origins,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if settings.debug:
+    _cors_kwargs["allow_origin_regex"] = r"^http://(localhost|127\.0\.0\.1):\d+$"
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -498,7 +511,7 @@ class ArticleIn(BaseModel):
     published_at: datetime | None
     summary: str | None
     source: Annotated[str, Field(max_length=100)]
-
+    athlete_tags: list[str] | None = None
     @field_validator("summary", mode="before")
     @classmethod
     def sanitize_summary(cls, v: str | None) -> str | None:
@@ -516,13 +529,39 @@ def ingest_article(article: ArticleIn):
         """
         INSERT INTO articles (title, url, published_at, summary, source)
         VALUES (:title, :url, :published_at, :summary, :source)
-        ON CONFLICT (url) DO NOTHING;
+        ON CONFLICT (url) DO NOTHING
+        RETURNING id;
         """
     )
 
+    article_id: int | None = None
     with engine.begin() as conn:
-        conn.execute(query, article.model_dump())
-
+        # Insert article, get its id. If conflict (duplicate url) returns none.
+        result = conn.execute(query, article.model_dump())
+        row = result.fetchone()
+        article_id = row[0] if row else None
+        # If duplicate, fetch existing id.
+        if article_id is None:
+            existing = conn.execute(text("SELECT id FROM articles WHERE url = :url"), {"url": article.url}).fetchone()
+            article_id = existing[0] if existing else None
+        # Resolve athlete tags to ids and populate join table.
+        if article_id and article.athlete_tags:
+            normalized = [normalize_name(t) for t in article.athlete_tags if t]
+            if normalized:
+                placeholders = ", ".join([f":n{i}" for i in range(len(normalized))])
+                athlete_query = text(f"SELECT id FROM athletes WHERE name_norm IN ({placeholders})")
+                athlete_rows = conn.execute(athlete_query, {f"n{i}": n for i, n in enumerate(normalized)}).fetchall()
+                for row in athlete_rows:
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO article_athletes (article_id, athlete_id, matched_via)
+                            VALUES (:a_id, :ath_id, 'rss_category')
+                            ON CONFLICT DO NOTHING
+                            """
+                        ),
+                        {"a_id": article_id, "ath_id": row[0]},
+                    )
     return {"status": "ok"}
 
 
@@ -590,6 +629,58 @@ def list_articles(
     return {"articles": rows_list, "next_cursor": next_cursor}
 
 
+@app.get("/articles/featured-athletes")
+def featured_athletes(
+    limit: int = Query(4, ge=1, le=20, description="How many athletes to return"),
+    days: int = Query(14, ge=1, le=90, description="Article recency window in days"),
+):
+    """
+    Returns athletes most-mentioned in articles published within the last
+    `days` days, paired with their most-recent matching article. Driven by
+    the article_athletes join populated from RSS <category> tags at ingest.
+    """
+    query = text(
+        """
+        WITH recent AS (
+            SELECT aa.athlete_id,
+                   aa.article_id,
+                   a.published_at,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY aa.athlete_id
+                       ORDER BY a.published_at DESC NULLS LAST
+                   ) AS rn,
+                   COUNT(*) OVER (PARTITION BY aa.athlete_id) AS mentions
+            FROM article_athletes aa
+            JOIN articles a ON a.id = aa.article_id
+            WHERE a.published_at > (now() - (:days || ' days')::interval)
+        )
+        SELECT
+            ath.id AS athlete_id,
+            ath.slug,
+            ath.name,
+            ath.country,
+            ath.flag,
+            ath.img,
+            art.id AS article_id,
+            art.title,
+            art.url,
+            art.summary,
+            art.published_at,
+            art.source,
+            recent.mentions
+        FROM recent
+        JOIN athletes ath ON ath.id = recent.athlete_id
+        JOIN articles art ON art.id = recent.article_id
+        WHERE recent.rn = 1
+        ORDER BY recent.mentions DESC, art.published_at DESC NULLS LAST
+        LIMIT :limit
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(query, {"limit": limit, "days": days}).mappings().all()
+    return [dict(r) for r in rows]
+
+
 ###################################
 # Athletes
 ###################################
@@ -616,13 +707,15 @@ def ingest_athlete(athlete: AthleteIn):
     slug = slugify(athlete.name)
     payload = athlete.model_dump()
     payload["slug"] = slug
+    payload["name_norm"] = normalize_name(athlete.name)
     query = text(
         """
-        INSERT INTO athletes (external_id, slug, name, country, flag, strokes, bio, medals, world_records, world_rank, img, gender, date_of_birth)
-        VALUES (:external_id, :slug, :name, :country, :flag, :strokes, :bio, :medals, :world_records, :world_rank, :img, :gender, :date_of_birth)
+        INSERT INTO athletes (external_id, slug, name, name_norm, country, flag, strokes, bio, medals, world_records, world_rank, img, gender, date_of_birth)
+        VALUES (:external_id, :slug, :name, :name_norm, :country, :flag, :strokes, :bio, :medals, :world_records, :world_rank, :img, :gender, :date_of_birth)
         ON CONFLICT (external_id) DO UPDATE SET
             slug = EXCLUDED.slug,
             name = EXCLUDED.name,
+            name_norm = EXCLUDED.name_norm,
             country = EXCLUDED.country,
             flag = EXCLUDED.flag,
             strokes = EXCLUDED.strokes,
@@ -630,7 +723,7 @@ def ingest_athlete(athlete: AthleteIn):
             medals = EXCLUDED.medals,
             world_records = EXCLUDED.world_records,
             world_rank = EXCLUDED.world_rank,
-            img = EXCLUDED.img,
+            img = COALESCE(EXCLUDED.img, athletes.img),
             gender = COALESCE(EXCLUDED.gender, athletes.gender),
             date_of_birth = COALESCE(EXCLUDED.date_of_birth, athletes.date_of_birth);
         """

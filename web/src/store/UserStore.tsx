@@ -289,9 +289,12 @@ export function useUser(): {
 
   const isFollowing = useCallback(
     (type: FollowEntityType, entityId: string): boolean => {
-      if (!state) return false;
+      const follows = state?.follows;
+      if (!follows) return false;
       const key = type === 'athlete' ? 'athletes' : type === 'event' ? 'events' : type === 'topic' ? 'topics' : 'storylines';
-      return state.follows[key].some((e) => e.id === entityId);
+      const list = follows[key];
+      if (!Array.isArray(list)) return false;
+      return list.some((e) => e.id === entityId);
     },
     [state]
   );
