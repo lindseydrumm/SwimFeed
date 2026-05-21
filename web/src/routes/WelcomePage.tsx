@@ -6,7 +6,7 @@ type Props = {
 
 export function WelcomePage({ onStart }: Props) {
   return (
-    <div className="relative h-screen w-screen flex flex-col justify-between items-center text-center px-6 py-10 overflow-hidden">
+    <div className="relative h-screen w-screen flex flex-col justify-center items-center text-center px-6 py-10 overflow-hidden">
       
       {/* BACKGROUND MOTION (THE KEY PART) */}
       <div className="absolute inset-0 overflow-hidden">
@@ -34,7 +34,7 @@ export function WelcomePage({ onStart }: Props) {
       </div>
 
       {/* CONTENT */}
-      <div className="relative z-10 mt-16">
+      <div className="relative z-10 flex flex-col items-center gap-10">
         <motion.h1
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -52,21 +52,20 @@ export function WelcomePage({ onStart }: Props) {
         >
           Follow the sport. Track the moments. Stay in your lane.
         </motion.p>
-      </div>
 
-      {/* CTA */}
-      <div className="relative z-10 mb-10">
-        <motion.button
-          onClick={onStart}
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.8, duration: 0.8 }}
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.96 }}
-          className="px-10 py-3 bg-white text-black hover:bg-cyan-500 rounded-full font-medium tracking-wide shadow-lg"
-        >
-          Get Started
-        </motion.button>
+        <div className="relative z-10 mb-10">
+          <motion.button
+            onClick={onStart}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.8, duration: 0.8 }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.96 }}
+            className="px-10 py-3 bg-white text-black hover:bg-cyan-500 rounded-full font-medium tracking-wide shadow-lg"
+          >
+            Get Started
+          </motion.button>
+        </div>
       </div>
     </div>
   );

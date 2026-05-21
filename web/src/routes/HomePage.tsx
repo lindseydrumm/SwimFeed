@@ -22,7 +22,6 @@ export function HomePage() {
 
   const [newSinceCount, setNewSinceCount] = useState<number | null>(null);
 
-  // Touch visit when user is authenticated
   useEffect(() => {
     if (ready && !isGuest) touchVisit();
   }, [ready, isGuest, touchVisit]);
@@ -37,7 +36,6 @@ export function HomePage() {
   const savedCount = state?.contentState?.savedArticles?.length ?? 0;
   const streak = state?.activity?.streakCount ?? 0;
 
-  // Calculate new articles since last visit
   useEffect(() => {
     if (lastVisit) setNewSinceCount(3);
     else setNewSinceCount(null);
@@ -54,60 +52,62 @@ export function HomePage() {
       </section>
 
       {/* Personalized header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-            Welcome back, {name}
-          </h1>
-          <p className="text-slate-400 text-sm md:text-base flex items-center gap-2 flex-wrap">
-            <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
-            <span>
-              You&apos;re following{' '}
-              <span className="text-cyan-400 font-semibold">{athleteCount} athletes</span>
-              {eventCount > 0 && (
-                <>
-                  , <span className="text-cyan-400 font-semibold">{eventCount} events</span>
-                </>
-              )}
-              {(topicCount + storylineCount) > 0 && (
-                <>
-                  , and{' '}
-                  <span className="text-cyan-400 font-semibold">
-                    {topicCount + storylineCount} topics/storylines
-                  </span>
-                </>
-              )}
-              {athleteCount === 0 &&
-                eventCount === 0 &&
-                topicCount === 0 &&
-                storylineCount === 0 &&
-                ' — add some in Settings'}
-              .
-            </span>
-            {streak > 0 && <StreakBadge count={streak} className="ml-1" />}
-          </p>
-        </div>
+      {!isGuest && ready && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
+              Welcome back, {name}
+            </h1>
+            <p className="text-slate-400 text-sm md:text-base flex items-center gap-2 flex-wrap">
+              <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>
+                You&apos;re following{' '}
+                <span className="text-cyan-400 font-semibold">{athleteCount} athletes</span>
+                {eventCount > 0 && (
+                  <>
+                    , <span className="text-cyan-400 font-semibold">{eventCount} events</span>
+                  </>
+                )}
+                {(topicCount + storylineCount) > 0 && (
+                  <>
+                    , and{' '}
+                    <span className="text-cyan-400 font-semibold">
+                      {topicCount + storylineCount} topics/storylines
+                    </span>
+                  </>
+                )}
+                {athleteCount === 0 &&
+                  eventCount === 0 &&
+                  topicCount === 0 &&
+                  storylineCount === 0 &&
+                  ' — add some in Settings'}
+                .
+              </span>
+              {streak > 0 && <StreakBadge count={streak} className="ml-1" />}
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/settings"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50 transition-colors"
-          >
-            <Settings className="h-4 w-4" />
-            Edit interests
-          </Link>
-          <Link
-            to="/saved"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
-          >
-            <Bookmark className="h-4 w-4" />
-            View saved ({savedCount})
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/settings"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-cyan-500/50 transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+              Edit interests
+            </Link>
+            <Link
+              to="/saved"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
+            >
+              <Bookmark className="h-4 w-4" />
+              View saved ({savedCount})
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Since last visit */}
-      {lastVisit && (
+      {!isGuest && ready && lastVisit && (
         <Card animate={false} className="border-cyan-500/20">
           <CardContent className="p-4">
             <p className="text-sm text-slate-400">
@@ -116,9 +116,7 @@ export function HomePage() {
               </span>
               {newSinceCount != null && (
                 <>
-                  {' '}
-                  — <span className="text-cyan-400">{newSinceCount} articles</span> in your
-                  feed
+                  {' '}— <span className="text-cyan-400">{newSinceCount} articles</span> in your feed
                 </>
               )}
             </p>
@@ -126,7 +124,7 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* Athletes-in-the-news bar — self-contained, fetches its own data. */}
+      {/* Athletes-in-the-news bar */}
       <section>
         <AthleteInfoBar />
       </section>
@@ -136,15 +134,17 @@ export function HomePage() {
         <UpcomingRaces />
       </section>
 
-      {/* News feed (full-width) + Recent Results sidebar */}
+      {/* News feed + Recent Results sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
           <NewsFeedInfinite />
         </section>
 
+        {/* Remove for now
         <section className="lg:col-span-1">
           <RecentResults />
         </section>
+        */}
       </div>
     </div>
   );
