@@ -425,11 +425,29 @@ def create_tables():
         conn.execute(
             text(
                 """
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    clerk_id TEXT UNIQUE NOT NULL,
+                    display_name TEXT DEFAULT '',
+                    goals JSONB DEFAULT '[]',
+                    interests JSONB DEFAULT '{}',
+                    digest_preference TEXT DEFAULT 'daily',
+                    onboarding_complete BOOLEAN DEFAULT FALSE,
+                    follows JSONB DEFAULT '{"athletes":[],"events":[],"topics":[],"storylines":[]}',
+                    saved_articles JSONB DEFAULT '[]',
+                    seen_articles JSONB DEFAULT '[]',
+                    last_visit_at TIMESTAMPTZ,
+                    streak_count INTEGER DEFAULT 0,
+                    learn_completions JSONB DEFAULT '[]',
+                    created_at TIMESTAMPTZ DEFAULT now(),
+                    updated_at TIMESTAMPTZ DEFAULT now()
+                );
                 CREATE TABLE IF NOT EXISTS athletes (
                     id SERIAL PRIMARY KEY,
                     slug TEXT UNIQUE NOT NULL,
                     external_id INTEGER UNIQUE NOT NULL,
                     name TEXT NOT NULL,
+                    name_norm TEXT,
                     country TEXT,
                     flag TEXT,
                     strokes TEXT,
@@ -462,40 +480,71 @@ def create_tables():
                     result_date TEXT,
                     UNIQUE (athlete_ext_id, event, pool_length)
                 );
+                CREATE TABLE IF NOT EXISTS articles (
+                    id SERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    url TEXT UNIQUE NOT NULL,
+                    published_at TIMESTAMP,
+                    summary TEXT,
+                    source TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS article_athletes (
+                    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                    athlete_id INTEGER NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+                    matched_via TEXT NOT NULL,
+                    PRIMARY KEY (article_id, athlete_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_article_athletes_athlete ON article_athletes(athlete_id);
                 CREATE TABLE IF NOT EXISTS rankings (
-                    id              SERIAL PRIMARY KEY,
-                    athlete_ext_id  INTEGER NOT NULL,
-                    athlete_name    TEXT NOT NULL,
-                    country_code    TEXT,
-                    gender          TEXT NOT NULL,
-                    distance        INTEGER NOT NULL,
-                    stroke          TEXT NOT NULL,
-                    pool            TEXT NOT NULL,
-                    rank            INTEGER NOT NULL,
-                    time            TEXT NOT NULL,
-                    fina_points     REAL,
-                    event_name      TEXT,
-                    event_city      TEXT,
-                    result_date     TIMESTAMPTZ,
-                    ranking_type    TEXT NOT NULL DEFAULT 'alltime',
+                    id SERIAL PRIMARY KEY,
+                    athlete_ext_id INTEGER NOT NULL,
+                    athlete_name TEXT NOT NULL,
+                    country_code TEXT,
+                    gender TEXT NOT NULL,
+                    distance INTEGER NOT NULL,
+                    stroke TEXT NOT NULL,
+                    pool TEXT NOT NULL,
+                    rank INTEGER NOT NULL,
+                    time TEXT NOT NULL,
+                    fina_points REAL,
+                    event_name TEXT,
+                    event_city TEXT,
+                    result_date TIMESTAMPTZ,
+                    ranking_type TEXT NOT NULL DEFAULT 'alltime',
                     UNIQUE (athlete_ext_id, gender, distance, stroke, pool, ranking_type)
                 );
                 CREATE TABLE IF NOT EXISTS records (
-                    id              SERIAL PRIMARY KEY,
-                    athlete_ext_id  INTEGER NOT NULL,
-                    athlete_name    TEXT NOT NULL,
-                    country_code    TEXT,
-                    gender          TEXT NOT NULL,
-                    distance        INTEGER NOT NULL,
-                    stroke          TEXT NOT NULL,
-                    pool            TEXT NOT NULL,
-                    time            TEXT NOT NULL,
-                    fina_points     REAL,
-                    event_name      TEXT,
-                    event_city      TEXT,
-                    result_date     TIMESTAMPTZ,
+                    id SERIAL PRIMARY KEY,
+                    athlete_ext_id INTEGER NOT NULL,
+                    athlete_name TEXT NOT NULL,
+                    country_code TEXT,
+                    gender TEXT NOT NULL,
+                    distance INTEGER NOT NULL,
+                    stroke TEXT NOT NULL,
+                    pool TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    fina_points REAL,
+                    event_name TEXT,
+                    event_city TEXT,
+                    result_date TIMESTAMPTZ,
                     UNIQUE (gender, distance, stroke, pool)
                 );
+                CREATE TABLE IF NOT EXISTS events (
+                    id SERIAL PRIMARY KEY,
+                    external_id INTEGER UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    date_from TIMESTAMP,
+                    date_to TIMESTAMP,
+                    city TEXT,
+                    country TEXT,
+                    country_code TEXT,
+                    competition_type TEXT,
+                    disciplines TEXT
+                );
+                -- Migration / fix for existing DB
+                ALTER TABLE athletes ADD COLUMN IF NOT EXISTS name_norm TEXT;
+                UPDATE athletes SET name_norm = lower(name) WHERE name_norm IS NULL;
+                CREATE INDEX IF NOT EXISTS idx_athletes_name_norm ON athletes(name_norm);
                 """
             )
         )
