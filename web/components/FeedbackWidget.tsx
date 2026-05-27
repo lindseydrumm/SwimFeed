@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, X, Send, CheckCircle } from 'lucide-react';
+import { MessageSquare, X, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type FeedbackEntry = {
@@ -14,10 +14,14 @@ type FeedbackEntry = {
 };
 
 const STORAGE_KEY = 'swimlive_feedback';
+const FEEDBACK_EMAIL = 'projectswimlive@gmail.com';
+const FORM_ENDPOINT = `https://formsubmit.co/ajax/${FEEDBACK_EMAIL}`;
 
 export function FeedbackWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const [rating, setRating] = useState('');
   const [pageExperience, setPageExperience] = useState('');
@@ -41,8 +45,10 @@ export function FeedbackWidget() {
     setEmail('');
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setSubmitting(true);
+    setError('');
 
     const entry: FeedbackEntry = {
       id: crypto.randomUUID(),
@@ -55,14 +61,45 @@ export function FeedbackWidget() {
       createdAt: new Date().toISOString(),
     };
 
-    saveFeedback(entry);
-    setSubmitted(true);
-    resetForm();
+    try {
+      saveFeedback(entry);
 
-    setTimeout(() => {
-      setSubmitted(false);
-      setIsOpen(false);
-    }, 1800);
+      const response = await fetch(FORM_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          _subject: 'New SwimLive Feedback',
+          _template: 'table',
+          rating: entry.rating,
+          page_experience: entry.pageExperience,
+          useful_feature: entry.usefulFeature || 'Not provided',
+          suggestion: entry.suggestion,
+          user_email: entry.email || 'Not provided',
+          page_url: entry.pageUrl,
+          submitted_at: entry.createdAt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send feedback email');
+      }
+
+      setSubmitted(true);
+      resetForm();
+
+      setTimeout(() => {
+        setSubmitted(false);
+        setIsOpen(false);
+      }, 2000);
+    } catch (submitError) {
+      console.error('Feedback submit error:', submitError);
+      setError('Could not send feedback. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -103,7 +140,7 @@ export function FeedbackWidget() {
                   Thanks for your feedback!
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Your response has been saved.
+                  Your response was sent to {FEEDBACK_EMAIL}.
                 </p>
               </div>
             ) : (
@@ -119,11 +156,11 @@ export function FeedbackWidget() {
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
                   >
                     <option value="">Select a rating</option>
-                    <option value="5">5 - Excellent</option>
-                    <option value="4">4 - Good</option>
-                    <option value="3">3 - Okay</option>
-                    <option value="2">2 - Needs work</option>
-                    <option value="1">1 - Poor</option>
+                    <option value="5 - Excellent">5 - Excellent</option>
+                    <option value="4 - Good">4 - Good</option>
+                    <option value="3 - Okay">3 - Okay</option>
+                    <option value="2 - Needs work">2 - Needs work</option>
+                    <option value="1 - Poor">1 - Poor</option>
                   </select>
                 </div>
 
@@ -138,11 +175,11 @@ export function FeedbackWidget() {
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
                   >
                     <option value="">Choose one</option>
-                    <option value="read-news">Read swimming news</option>
-                    <option value="find-athletes">Find athletes</option>
-                    <option value="check-events">Check events</option>
-                    <option value="explore-content">Explore content</option>
-                    <option value="other">Other</option>
+                    <option value="Read swimming news">Read swimming news</option>
+                    <option value="Find athletes">Find athletes</option>
+                    <option value="Check events">Check events</option>
+                    <option value="Explore content">Explore content</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 
@@ -185,13 +222,25 @@ export function FeedbackWidget() {
                   />
                 </div>
 
+                {error && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400"
+                  disabled={submitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Submit feedback
+                  {submitting ? 'Sending...' : 'Submit feedback'}
                   <Send className="h-4 w-4" />
                 </button>
+
+                <p className="text-center text-[11px] text-slate-500">
+                  Feedback will be sent to {FEEDBACK_EMAIL}.
+                </p>
               </form>
             )}
           </motion.div>
