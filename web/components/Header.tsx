@@ -146,7 +146,9 @@ export function Header() {
 
         {/* Right side: notifications + auth */}
         <div className="flex items-center gap-2">
-          <EventNotificationsBell followedEvents={state?.follows?.events} />
+          {isLoaded && isSignedIn && (
+            <EventNotificationsBell followedEvents={state?.follows?.events} />
+          )}
           {!isLoaded ? (
             <div className="h-8 w-8 rounded-full bg-slate-700 animate-pulse" />
           ) : isSignedIn ? (
