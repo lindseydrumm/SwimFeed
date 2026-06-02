@@ -4,7 +4,7 @@
  * smooth transitions. Falls back to static swimming imagery when
  * the API is unavailable or returns no data.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
 import { getArticlesPage } from '../src/api/articles';
@@ -100,6 +100,9 @@ export function FeaturedCarousel({ onArticleChange, autoPlayInterval = 5000 }: F
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [direction, setDirection] = useState(0); // -1 = left, 1 = right
+  // Tracks whether the last pointer interaction was a swipe/drag, so the
+  // surrounding article link doesn't navigate when the user is swiping.
+  const wasDraggedRef = useRef(false);
 
   // Fetch articles from API
   useEffect(() => {
@@ -200,7 +203,25 @@ export function FeaturedCarousel({ onArticleChange, autoPlayInterval = 5000 }: F
               animate="center"
               exit="exit"
               transition={{ duration: 0.5, ease: 'easeInOut' }}
-              className="absolute inset-0"
+              className="absolute inset-0 cursor-grab active:cursor-grabbing"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragStart={() => {
+                wasDraggedRef.current = false;
+              }}
+              onDragEnd={(_e, info) => {
+                const swipeThreshold = 80;
+                const { offset, velocity } = info;
+                const swipePower = offset.x + velocity.x * 0.3;
+                if (swipePower < -swipeThreshold) {
+                  wasDraggedRef.current = true;
+                  goToNext();
+                } else if (swipePower > swipeThreshold) {
+                  wasDraggedRef.current = true;
+                  goToPrevious();
+                }
+              }}
             >
               <img
                 src={current.imageUrl}
@@ -293,7 +314,19 @@ export function FeaturedCarousel({ onArticleChange, autoPlayInterval = 5000 }: F
   // Wrap with link if article has URL
   if (!loading && current.url) {
     return (
-      <a href={current.url} target="_blank" rel="noopener noreferrer" className="block">
+      <a
+        href={current.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+        onClickCapture={(e) => {
+          if (wasDraggedRef.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            wasDraggedRef.current = false;
+          }
+        }}
+      >
         {inner}
       </a>
     );
