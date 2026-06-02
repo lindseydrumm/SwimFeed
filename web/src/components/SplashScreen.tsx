@@ -11,8 +11,8 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
-const WORD = 'SwimLive';
-// Index at which the cyan-colored "Live" begins.
+const WORD = 'SwimFeed';
+// Index at which the cyan-colored "Feed" begins.
 const CYAN_FROM = 4;
 
 // Deterministic off-screen start offsets so each letter enters from a
