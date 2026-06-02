@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Header } from '../components/Header';
+import { SplashScreen } from './components/SplashScreen';
 import { UserStoreProvider } from './store/UserStore';
 import { ThemeProvider } from './context/ThemeContext';
 import { OnboardingGuard } from './components/OnboardingGuard';
@@ -43,9 +44,22 @@ function Layout() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(
+    () => !sessionStorage.getItem('swimlive_splash_seen'),
+  );
+
   return (
     <ThemeProvider>
       <UserStoreProvider>
+        {showSplash && (
+          <SplashScreen
+            onComplete={() => {
+              sessionStorage.setItem('swimlive_splash_seen', '1');
+              setShowSplash(false);
+            }}
+          />
+        )}
+
         <Routes>
           <Route element={<Layout />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
