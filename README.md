@@ -9,6 +9,10 @@ This is a dual-app repository:
 
 ---
 
+## Deployment
+
+The deployed application is available at: https://swimfeed.com/
+
 ## Tech Stack
 
 **Backend:** Python 3.12, FastAPI, PostgreSQL 15, SQLAlchemy (raw SQL), Pydantic, uv, PyJWT
@@ -220,9 +224,5 @@ npm run preview   # Preview production build locally
 ```
 
 ---
-
-## Deployment
-
-The deployed application is available at: https://swimlive.onrender.com/
 
 *Note: The free-tier server spins down after 15 minutes of inactivity. Initial visits may take 1–5 minutes to load.*
