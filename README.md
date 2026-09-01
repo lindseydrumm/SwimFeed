@@ -1,6 +1,8 @@
-# SwimLive
 
-SwimLive is a competitive swimming aggregation platform that makes the sport easier to follow. It aggregates news from major swimming publications, tracks upcoming events from World Aquatics and USA Swimming, surfaces athlete profiles, and delivers a personalized feed based on user preferences.
+<img width="169" height="54" alt="Screenshot 2026-09-01 at 12 43 14 PM" src="https://github.com/user-attachments/assets/930b30ed-7dc3-4b5d-b586-82ff92297614" />
+
+
+A competitive swimming aggregation platform that makes the sport easier to follow. It aggregates news from major swimming publications, tracks upcoming events from World Aquatics and USA Swimming, surfaces athlete profiles, and delivers a personalized feed based on user preferences.
 
 This is a dual-app repository:
 
@@ -11,7 +13,7 @@ This is a dual-app repository:
 
 ## Deployment
 
-The deployed application is available at: https://swimfeed.com/
+After configuring Docker, the deployed application is available at: https://swimfeed.com/
 
 ## Tech Stack
 
